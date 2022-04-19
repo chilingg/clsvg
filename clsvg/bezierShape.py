@@ -201,6 +201,9 @@ class Rect(object):
     def intersects(self, rect, offset=0):
         return rect.right-self.left > offset  and self.right-rect.left > offset and self.top-rect.bottom > offset and rect.top-self.bottom > offset
 
+    def center(self):
+        return Point((self.left+self.right) / 2, (self.bottom+self.top) / 2)
+
 def intersection(ps1, pe1, ps2, pe2):
     def lineareQuation(p1, p2):
         A = p2.y - p1.y
@@ -245,6 +248,8 @@ def equation(*coefficient):
 
 class BezierCtrl(object):
     def __init__(self, pos:Point, p1:Point = Point(0,0), p2:Point = None) -> None:
+        # if p1.isOrigin() and (p2 == None or p2.isOrigin()) and pos.isOrigin():
+        #     raise Exception('Empty bezier ctrl!')
         self.p1 = p1
         self.p2 = p2
         self.pos = pos
@@ -385,6 +390,17 @@ class BezierCtrl(object):
     def rotate(self, radian):
         return BezierCtrl(p1=self.p1.rotate(radian), p2=self.p2.rotate(radian), pos=self.pos.rotate(radian))
 
+    def rotations(self):
+        p1 = self.p1
+        p2 = self.pos
+        t = p1.x * p2.y - p2.x * p1.y
+        if t < 0:
+            return -1
+        elif t > 0:
+            return 1
+        else:
+            return 0
+
     def fromABC(t:float, tangents, start:Point, end:Point):
         ut = cInterpolation(t)
         c = start*ut + end*(1-ut)
@@ -402,6 +418,9 @@ class BezierCtrl(object):
 
     def intersections(self, pos, other, otherPos:Point, interval=[-9999, 9999]):
         OFFSET = .001
+        if pos.distance(otherPos) < OFFSET:
+            if self.p1.distance(other.p1) < OFFSET and self.p2.distance(other.p2) < OFFSET and self.pos.distance(other.pos) < OFFSET:
+                return None
         def check(ctrl1, pos1, list1, ctrl2, pos2, list2):
             rect1 = ctrl1.boundingBox(pos1)
             rect2 = ctrl2.boundingBox(pos2)
@@ -650,6 +669,8 @@ class BezierPath(object):
             raise Exception('Add point to the closed path!')
         if not hasattr(self, '_startPos'):
             raise Exception('Bezier path not started!')
+        if p1.isOrigin() and (p2 == None or p2.isOrigin()) and pos.isOrigin():
+            return
         if s:
             p1 = self._ctrlList[-1].pos - self._ctrlList[-1].p2
         self._ctrlList.append(BezierCtrl(pos, p1, p2))
@@ -718,16 +739,16 @@ class BezierPath(object):
                 sPos += ctrl.pos
         return count % 2 == 1
     
-    def isClockwise(self):
-        for ctrl in self:
-            p1 = ctrl.p1
-            p2 = ctrl.pos
-            t = p1.x * p2.y - p2.x * p1.y
-            if t < 0:
-                return -1
-            elif t > 0:
-                return 1
-        return 0
+    def rotations(self):
+        p1 = self[0].pos
+        p2 = self.boundingBox().center() - self.startPos()
+
+        t = p1.x * p2.y - p2.x * p1.y
+        if t < 0:
+            return -1
+        elif t > 0:
+            return 1
+        return 0            
 
     def toOutline(self, strokeWidth, jointype='Round', captype='Butt'):
         VALUE_OFFSET = .01
@@ -1003,7 +1024,6 @@ class BezierShape(object):
         self._pathList.extend(iterable)
 
     def toSvgElement(self, arrt={}):
-
         attrStr = ''
         for aPath in self._pathList:
             attrStr += 'M {},{} '.format(round(aPath.startPos().x, 3), round(aPath.startPos().y, 3))
@@ -1067,7 +1087,7 @@ def createPathfromSvgElem(elem, tag=''):
             elif com == 'h':
                 bezier.connect(Point(next(numList).group(), 0))
             elif com == 'v':
-                bezier.connect(0, Point(next(numList).group()))
+                bezier.connect(Point(0, next(numList).group()))
             elif com == 'S':
                 bezier.connect(p2=_getPointFromReMatch(numList) - pos, pos=_getPointFromReMatch(numList) - pos, s=True)
             elif com == 'C':
@@ -1091,7 +1111,8 @@ def createPathfromSvgElem(elem, tag=''):
             else:
                 raise AttributeError
             
-            pos += bezier.backCtrl().pos
+            if len(bezier):
+                pos += bezier.backCtrl().pos
         if (not bezier.isClose()) and (len(bezier)):
             path.add(bezier)
     elif tag == 'polyline':
@@ -1146,20 +1167,101 @@ class GroupShape(object):
     def __init__(self, shape:BezierShape=BezierShape()) -> None:
         def grouping(path, group):
             apos = path.startPos()
-            for p, g in group:
+            for i in range(0, len(group)):
+                p, g = group[i]
                 if p.containsPos(apos):
                     grouping(path, g)
                     return
+                elif path.containsPos(p.startPos()):
+                    group[i] = [path, [group[i]]]
+                    return
             group.append([path, []])
+
+        def direction(d, list):
+            for i in range(0, len(list)):
+                if len(list) == 0: return
+                r = list[i][0].rotations()
+                if r != d and r != 0:
+                    list[i][0] = list[i][0].reverse()
+                direction(-d, list[i][1])
 
         group = []
         for path in shape:
             if path.isClose():
                 grouping(path, group)
 
+        direction(-1, group)
         self._group = group
 
-    def __and__(self, group):
+    def __or__(self, group):
+        def anding(b1, ws1, b2, ws2):
+            tempB = b1 | b2
+            if len(tempB) == 1:
+                tempW = []
+                for w1,_ in ws1:
+                    temp = w1 - p2
+                    if len(temp) != 0:
+                        tempW.append([temp[0], []])
+                    if len(temp) > 1:
+                        for shape in temp[1:]:
+                            if shape.rotations() == 1:
+                                tempW.append([shape, []])
+                            else:
+                                tempW[-1][1].append([temp[1], []])
+                    for w2,_ in ws2:
+                        for u in w2&w1:
+                            tempW.append([u, []])
+                for w2,_ in ws2:
+                    temp = w2 - p1
+                    if len(temp) != 0:
+                        tempW.append([temp[0], []])
+                    if len(temp) > 1:
+                        for shape in temp[1:]:
+                            if shape.rotations() == 1:
+                                tempW.append([shape, []])
+                            else:
+                                tempW[-1][1].append([temp[1], []])
+
+                return [True, [tempB[0], tempW]]
+            return [False, [b2, ws2]]
+
+        if len(self._group) == 0:
+            return group
+        elif len(group._group) == 0:
+            return self
+
+        oldGroup = []
+        newGroup = copy.deepcopy(group._group)
         for p1, g1 in self._group:
-            for p2, g2 in group._group:
-                pass
+            i = 0
+            hIndex = None
+            while i < len(newGroup):
+                p2, g2 = newGroup[i]
+                h, newGroup[i] = anding(p1, g1, p2, g2)
+                if h:
+                    p1, g1 = newGroup[i]
+                    if hIndex != None:
+                        newGroup.pop(hIndex)
+                        hIndex = i-1
+                    else:
+                        hIndex = i
+                        i += 1
+                else:
+                    i += 1
+            if hIndex == None:
+                oldGroup.append([p1, g1])
+
+        ng = GroupShape()
+        ng._group = newGroup + oldGroup
+        return ng
+
+    def toShape(self):
+        def unGroup(group, list):
+            for p, g in group:
+                list.append(p)
+                unGroup(g, list)
+
+        shape = BezierShape()
+        unGroup(self._group, shape._pathList)
+
+        return shape

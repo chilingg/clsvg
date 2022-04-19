@@ -357,9 +357,6 @@ def test():
     tree = svgfile.parse(TEST_FOLDER + targetFile)
     root = tree.getroot()
 
-    # for child in root:
-    #     print(svgfile.unPrefix(child.tag), child.attrib)
-
     newRoot = svgfile.ET.Element(root.tag, root.attrib)
     newRoot.text = '\n'
     styleElem = svgfile.ET.Element('style', { 'type': 'text/css' })
@@ -369,22 +366,14 @@ def test():
     newRoot.append(styleElem)
     
     g = bezierShape.GroupShape()
-    ps = [bezierShape.BezierPath()]
     for child in root:
         tag = svgfile.unPrefix(child.tag)
         if tag != 'style':
-            ps = (bezierShape.createPathfromSvgElem(child, tag)[0] | ps[0])
+            shape = bezierShape.BezierShape()
+            shape.extend(bezierShape.createPathfromSvgElem(child, tag)[0].toOutline(36))
+            g |= bezierShape.GroupShape(shape)
 
-    newShape = bezierShape.BezierShape()
-    newShape.extend(ps)
-    # for p in ps:
-    #     print(p.isClockwise())
-    newRoot.append(newShape.toSvgElement({ 'class': 'st1' }))
-
-            #g.union(bezierShape.GroupShape(shape))
-
-    # for child in newRoot:
-    #     print(child.tag, child.attrib)
+    newRoot.append(g.toShape().toSvgElement({ 'class': 'st1' }))
 
     newTree = svgfile.ET.ElementTree(newRoot)
     newTree.write(TEST_OVER_FOLDER + targetFile, encoding = "utf-8", xml_declaration = True)
