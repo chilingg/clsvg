@@ -394,7 +394,14 @@ if __name__ == '__main__':
     if not os.path.exists(TEST_OVER_FOLDER):
         os.mkdir(TEST_OVER_FOLDER)
 
-    #testPathIntersections()
-    #testCurveAndLineIntersections()
-    testPathToOutline()
     test()
+    testBoundingBox()
+    testCasteljau()
+    testCurveAndLineIntersections()
+    testExtermesFinding()
+    testPathIntersections()
+    testPathToOutline()
+    testSimplified()
+    testShapeToPath()
+    testSplitting()
+    testTangentsAndNormals()
