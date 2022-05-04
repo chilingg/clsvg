@@ -3,16 +3,18 @@
 from clsvg import svgfile
 from clsvg import bezierShape
 
-TEST_FOLDER = 'testFile/'
-TEST_OVER_FOLDER = 'testFile/over/'
-TARGET_FILE = 'test.svg'
+import os
+FILE_PATH = os.path.dirname(os.path.realpath(__file__))
+TEST_FOLDER = os.path.join(FILE_PATH, 'testFile')
+TEST_OVER_FOLDER = os.path.join(FILE_PATH, 'testFile/over/')
+TARGET_FILE = os.path.join(FILE_PATH, 'test.svg')
 
 MAIN_PATH_STYLE = '.st0{fill:none;stroke:#000000;stroke-width:2;}'
 
 def testShapeToPath():
     targetFile = 'shape_to_path.svg'
 
-    tree = svgfile.parse(TEST_FOLDER + targetFile)
+    tree = svgfile.parse(os.path.join(TEST_FOLDER, targetFile))
     root = tree.getroot()
 
     newRoot = svgfile.ET.Element(root.tag, root.attrib)
@@ -30,12 +32,12 @@ def testShapeToPath():
             newRoot.append(elem)
 
     newTree = svgfile.ET.ElementTree(newRoot)
-    newTree.write(TEST_OVER_FOLDER + targetFile, encoding = "utf-8", xml_declaration = True)
+    newTree.write(os.path.join(TEST_OVER_FOLDER, targetFile), encoding = "utf-8", xml_declaration = True)
 
 def testCasteljau():
     targetFile = 'casteljau.svg'
     
-    tree = svgfile.parse(TEST_FOLDER + targetFile)
+    tree = svgfile.parse(os.path.join(TEST_FOLDER, targetFile))
     root = tree.getroot()
 
     newRoot = svgfile.ET.Element(root.tag, root.attrib)
@@ -72,12 +74,12 @@ def testCasteljau():
                     pos += bCtrl.pos
 
     newTree = svgfile.ET.ElementTree(newRoot)
-    newTree.write(TEST_OVER_FOLDER + targetFile, encoding = "utf-8", xml_declaration = True)
+    newTree.write(os.path.join(TEST_OVER_FOLDER, targetFile), encoding = "utf-8", xml_declaration = True)
 
 def testSimplified():
     targetFile = 'simplified.svg'
 
-    tree = svgfile.parse(TEST_FOLDER + targetFile)
+    tree = svgfile.parse(os.path.join(TEST_FOLDER, targetFile))
     root = tree.getroot()
 
     newRoot = svgfile.ET.Element(root.tag, root.attrib)
@@ -103,12 +105,12 @@ def testSimplified():
                         startPos = endPos
 
     newTree = svgfile.ET.ElementTree(newRoot)
-    newTree.write(TEST_OVER_FOLDER + targetFile, encoding = "utf-8", xml_declaration = True)
+    newTree.write(os.path.join(TEST_OVER_FOLDER, targetFile), encoding = "utf-8", xml_declaration = True)
 
 def testSplitting():
     targetFile = 'splitting.svg'
 
-    tree = svgfile.parse(TEST_FOLDER + targetFile)
+    tree = svgfile.parse(os.path.join(TEST_FOLDER, targetFile))
     root = tree.getroot()
 
     newRoot = svgfile.ET.Element(root.tag, root.attrib)
@@ -134,12 +136,12 @@ def testSplitting():
             newRoot.append(pathElem)
 
     newTree = svgfile.ET.ElementTree(newRoot)
-    newTree.write(TEST_OVER_FOLDER + targetFile, encoding = "utf-8", xml_declaration = True)
+    newTree.write(os.path.join(TEST_OVER_FOLDER, targetFile), encoding = "utf-8", xml_declaration = True)
 
 def testTangentsAndNormals():
     targetFile = 'tangents_and_normals.svg'
 
-    tree = svgfile.parse(TEST_FOLDER + targetFile)
+    tree = svgfile.parse(os.path.join(TEST_FOLDER, targetFile))
     root = tree.getroot()
 
     newRoot = svgfile.ET.Element(root.tag, root.attrib)
@@ -170,12 +172,12 @@ def testTangentsAndNormals():
                     startPos += bCtrl.pos
 
     newTree = svgfile.ET.ElementTree(newRoot)
-    newTree.write(TEST_OVER_FOLDER + targetFile, encoding = "utf-8", xml_declaration = True)
+    newTree.write(os.path.join(TEST_OVER_FOLDER, targetFile), encoding = "utf-8", xml_declaration = True)
 
 def testExtermesFinding():
     targetFile = 'extermes_finding.svg'
 
-    tree = svgfile.parse(TEST_FOLDER + targetFile)
+    tree = svgfile.parse(os.path.join(TEST_FOLDER, targetFile))
     root = tree.getroot()
 
     newRoot = svgfile.ET.Element(root.tag, root.attrib)
@@ -216,12 +218,12 @@ def testExtermesFinding():
                     startPos += bCtrl.pos
 
     newTree = svgfile.ET.ElementTree(newRoot)
-    newTree.write(TEST_OVER_FOLDER + targetFile, encoding = "utf-8", xml_declaration = True)
+    newTree.write(os.path.join(TEST_OVER_FOLDER, targetFile), encoding = "utf-8", xml_declaration = True)
 
 def testBoundingBox():
     targetFile = 'bounding_box.svg'
 
-    tree = svgfile.parse(TEST_FOLDER + targetFile)
+    tree = svgfile.parse(os.path.join(TEST_FOLDER, targetFile))
     root = tree.getroot()
 
     newRoot = svgfile.ET.Element(root.tag, root.attrib)
@@ -240,12 +242,12 @@ def testBoundingBox():
             newRoot.append(svgfile.createRectElem(rect, { 'fill': 'none', 'stroke-width': '1', 'stroke': "grey" }))
 
     newTree = svgfile.ET.ElementTree(newRoot)
-    newTree.write(TEST_OVER_FOLDER + targetFile, encoding = "utf-8", xml_declaration = True)
+    newTree.write(os.path.join(TEST_OVER_FOLDER, targetFile), encoding = "utf-8", xml_declaration = True)
 
 def testPathToOutline():
     targetFile = 'path_to_outline.svg'
 
-    tree = svgfile.parse(TEST_FOLDER + targetFile)
+    tree = svgfile.parse(os.path.join(TEST_FOLDER, targetFile))
     root = tree.getroot()
 
     newRoot = svgfile.ET.Element(root.tag, root.attrib)
@@ -269,12 +271,12 @@ def testPathToOutline():
                 newRoot.append(newShape.toSvgElement({ 'class': 'st1' }))
 
     newTree = svgfile.ET.ElementTree(newRoot)
-    newTree.write(TEST_OVER_FOLDER + targetFile, encoding = "utf-8", xml_declaration = True)
+    newTree.write(os.path.join(TEST_OVER_FOLDER, targetFile), encoding = "utf-8", xml_declaration = True)
 
 def testCurveAndLineIntersections():
     targetFile = 'curve_and_line_intersections.svg'
 
-    tree = svgfile.parse(TEST_FOLDER + targetFile)
+    tree = svgfile.parse(os.path.join(TEST_FOLDER, targetFile))
     root = tree.getroot()
 
     newRoot = svgfile.ET.Element(root.tag, root.attrib)
@@ -314,12 +316,12 @@ def testCurveAndLineIntersections():
                     startP += ctrl.pos
 
     newTree = svgfile.ET.ElementTree(newRoot)
-    newTree.write(TEST_OVER_FOLDER + targetFile, encoding = "utf-8", xml_declaration = True)
+    newTree.write(os.path.join(TEST_OVER_FOLDER, targetFile), encoding = "utf-8", xml_declaration = True)
 
 def testPathIntersections():
     targetFile = 'path_intersections.svg'
 
-    tree = svgfile.parse(TEST_FOLDER + targetFile)
+    tree = svgfile.parse(os.path.join(TEST_FOLDER, targetFile))
     root = tree.getroot()
 
     newRoot = svgfile.ET.Element(root.tag, root.attrib)
@@ -344,17 +346,44 @@ def testPathIntersections():
                     intersectValues = ctl1.intersections(pos1, ctl2, pos2)
                     for t in intersectValues[0]:
                         newRoot.append(svgfile.createCircleElem(ctl1.valueAt(t, pos1), 4, {'fill': 'red'}))
-                        #newRoot.append(svgfile.createRectElem(p, {'fill': 'red'}))
+                    for t in intersectValues[1]:
+                        newRoot.append(svgfile.createCircleElem(ctl2.valueAt(t, pos2), 4, {'fill': 'green'}))
                     pos2 += ctl2.pos
                 pos1 += ctl1.pos
 
     newTree = svgfile.ET.ElementTree(newRoot)
-    newTree.write(TEST_OVER_FOLDER + targetFile, encoding = "utf-8", xml_declaration = True)
+    newTree.write(os.path.join(TEST_OVER_FOLDER, targetFile), encoding = "utf-8", xml_declaration = True)
+
+def testRadianSegmentation():
+    targetFile = 'radian_segmentation.svg'
+
+    tree = svgfile.parse(os.path.join(TEST_FOLDER, targetFile))
+    root = tree.getroot()
+
+    newRoot = svgfile.ET.Element(root.tag, root.attrib)
+    newRoot.text = '\n'
+    styleElem = svgfile.ET.Element('style', { 'type': 'text/css' })
+    styleElem.text = MAIN_PATH_STYLE
+    styleElem.tail = '\n'
+    newRoot.append(styleElem)
+    
+    for child in root:
+        tag = svgfile.unPrefix(child.tag)
+        if tag != 'style':
+            shape = bezierShape.createPathfromSvgElem(child, tag)
+            ctrlList, tList = shape[0][0].radianSegmentation(3.14159/90)
+            print('Radian segmentation: {}'.format(tList))
+            shape[0]._ctrlList = ctrlList
+
+            newRoot.append(shape.toSvgElement({ 'class': 'st0' }))
+
+    newTree = svgfile.ET.ElementTree(newRoot)
+    newTree.write(os.path.join(TEST_OVER_FOLDER, targetFile), encoding = "utf-8", xml_declaration = True)
 
 def test():
     targetFile = TARGET_FILE
 
-    tree = svgfile.parse(TEST_FOLDER + targetFile)
+    tree = svgfile.parse(os.path.join(TEST_FOLDER, targetFile))
     root = tree.getroot()
 
     newRoot = svgfile.ET.Element(root.tag, root.attrib)
@@ -376,10 +405,9 @@ def test():
     newRoot.append(g.toShape().toSvgElement({ 'class': 'st1' }))
 
     newTree = svgfile.ET.ElementTree(newRoot)
-    newTree.write(TEST_OVER_FOLDER + targetFile, encoding = "utf-8", xml_declaration = True)
+    newTree.write(os.path.join(TEST_OVER_FOLDER, targetFile), encoding = "utf-8", xml_declaration = True)
 
 if __name__ == '__main__':
-    import os
     if not os.path.exists(TEST_OVER_FOLDER):
         os.mkdir(TEST_OVER_FOLDER)
 
@@ -394,3 +422,5 @@ if __name__ == '__main__':
     testShapeToPath()
     testSplitting()
     testTangentsAndNormals()
+    testRadianSegmentation()
+    
