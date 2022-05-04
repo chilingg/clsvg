@@ -199,12 +199,18 @@ class Rect(object):
         self.top = self.bottom + height
 
     def intersects(self, rect, offset=0):
-        return rect.right-self.left > offset  and self.right-rect.left > offset and self.top-rect.bottom > offset and rect.top-self.bottom > offset
+        return rect.right-self.left > offset and self.right-rect.left > offset and self.top-rect.bottom > offset and rect.top-self.bottom > offset
+
+    def contains(self, rect, offset=0):
+        return rect.left-self.left > offset and rect.bottom-self.bottom > offset and self.right-rect.right > offset and self.top-rect.top > offset
 
     def center(self):
         return Point((self.left+self.right) / 2, (self.bottom+self.top) / 2)
 
-def intersection(ps1, pe1, ps2, pe2):
+    def area(self):
+        return self.width * self.height
+
+def intersection(ps1, pe1, ps2, pe2, offset=0.002):
     def lineareQuation(p1, p2):
         A = p2.y - p1.y
         B = p1.x - p2.x
@@ -216,10 +222,111 @@ def intersection(ps1, pe1, ps2, pe2):
 
     A1, B1, C1 = lineareQuation(ps1, pe1)
     A2, B2, C2 = lineareQuation(ps2, pe2)
-    if A1*B2 - A2*B1:
+    if abs(A1*B2 - A2*B1) > abs(offset*B1*B2):
         return Point((B1*C2-C1*B2) / (A1*B2-A2*B1), (A2*C1-A1*C2) / (A1*B2-A2*B1))
     else:
-        return None
+        return abs(A1*ps2.x + B1*ps2.y + C1) / math.sqrt(A1**2 + B1**2)
+
+def intersectBezier3Bezier3(a1, a2, a3, a4, b1, b2, b3, b4, offset = .001):
+    # Code from http://www.kevlindev.com/geometry/2D/intersections/intersect_bezier3_bezier3.svg
+    
+    a = a1 * -1
+    b = a2 * 3
+    c = a3 * - 3
+    d = a + b + c + a4
+
+    c13 = Point(d.x, d.y)
+    a = a1 * 3
+    b = a2 * -6
+    c = a3 * 3
+    d = a + b + c
+
+    c12 = Point(d.x, d.y)
+    a = a1 * -3
+    b = a2 * 3
+    c = a + b
+
+    c11 = Point(c.x, c.y)
+    c10 = Point(a1.x, a1.y)
+
+    a = b1 * -1
+    b = b2 * 3
+    c = b3 * - 3
+    d = a + b + c + b4
+    c23 = Point(d.x, d.y)
+    a = b1 * 3
+    b = b2 * - 6
+    c = b3 * 3
+    d = a + b + c
+    c22 = Point(d.x, d.y)
+    a = b1 * - 3
+    b = b2 * 3
+    c = a + b
+    c21 = Point(c.x, c.y)
+    c20 = Point(b1.x, b1.y)
+    c10x2 = c10.x * c10.x
+    c10x3 = c10.x * c10.x * c10.x
+    c10y2 = c10.y * c10.y
+    c10y3 = c10.y * c10.y * c10.y
+    c11x2 = c11.x * c11.x
+    c11x3 = c11.x * c11.x * c11.x
+    c11y2 = c11.y * c11.y
+    c11y3 = c11.y * c11.y * c11.y
+    c12x2 = c12.x * c12.x
+    c12x3 = c12.x * c12.x * c12.x
+    c12y2 = c12.y * c12.y
+    c12y3 = c12.y * c12.y * c12.y
+    c13x2 = c13.x * c13.x
+    c13x3 = c13.x * c13.x * c13.x
+    c13y2 = c13.y * c13.y
+    c13y3 = c13.y * c13.y * c13.y
+    c20x2 = c20.x * c20.x
+    c20x3 = c20.x * c20.x * c20.x
+    c20y2 = c20.y * c20.y
+    c20y3 = c20.y * c20.y * c20.y
+    c21x2 = c21.x * c21.x
+    c21x3 = c21.x * c21.x * c21.x
+    c21y2 = c21.y * c21.y
+    c22x2 = c22.x * c22.x
+    c22x3 = c22.x * c22.x * c22.x
+    c22y2 = c22.y * c22.y
+    c23x2 = c23.x * c23.x
+    c23x3 = c23.x * c23.x * c23.x
+    c23y2 = c23.y * c23.y
+    c23y3 = c23.y * c23.y * c23.y
+
+    poly = [ - c13x3 * c23y3 + c13y3 * c23x3 - 3 * c13.x * c13y2 * c23x2 * c23.y + 3 * c13x2 * c13.y * c23.x * c23y2, - 6 * c13.x * c22.x * c13y2 * c23.x * c23.y + 6 * c13x2 * c13.y * c22.y * c23.x * c23.y + 3 * c22.x * c13y3 * c23x2 - 3 * c13x3 * c22.y * c23y2 - 3 * c13.x * c13y2 * c22.y * c23x2 + 3 * c13x2 * c22.x * c13.y * c23y2, - 6 * c21.x * c13.x * c13y2 * c23.x * c23.y - 6 * c13.x * c22.x * c13y2 * c22.y * c23.x + 6 * c13x2 * c22.x * c13.y * c22.y * c23.y + 3 * c21.x * c13y3 * c23x2 + 3 * c22x2 * c13y3 * c23.x + 3 * c21.x * c13x2 * c13.y * c23y2 - 3 * c13.x * c21.y * c13y2 * c23x2 - 3 * c13.x * c22x2 * c13y2 * c23.y + c13x2 * c13.y * c23.x * (6 * c21.y * c23.y + 3 * c22y2) + c13x3 * ( - c21.y * c23y2 - 2 * c22y2 * c23.y - c23.y * (2 * c21.y * c23.y + c22y2)), c11.x * c12.y * c13.x * c13.y * c23.x * c23.y - c11.y * c12.x * c13.x * c13.y * c23.x * c23.y + 6 * c21.x * c22.x * c13y3 * c23.x + 3 * c11.x * c12.x * c13.x * c13.y * c23y2 + 6 * c10.x * c13.x * c13y2 * c23.x * c23.y - 3 * c11.x * c12.x * c13y2 * c23.x * c23.y - 3 * c11.y * c12.y * c13.x * c13.y * c23x2 - 6 * c10.y * c13x2 * c13.y * c23.x * c23.y - 6 * c20.x * c13.x * c13y2 * c23.x * c23.y + 3 * c11.y * c12.y * c13x2 * c23.x * c23.y - 2 * c12.x * c12y2 * c13.x * c23.x * c23.y - 6 * c21.x * c13.x * c22.x * c13y2 * c23.y - 6 * c21.x * c13.x * c13y2 * c22.y * c23.x - 6 * c13.x * c21.y * c22.x * c13y2 * c23.x + 6 * c21.x * c13x2 * c13.y * c22.y * c23.y + 2 * c12x2 * c12.y * c13.y * c23.x * c23.y + c22x3 * c13y3 - 3 * c10.x * c13y3 * c23x2 + 3 * c10.y * c13x3 * c23y2 + 3 * c20.x * c13y3 * c23x2 + c12y3 * c13.x * c23x2 - c12x3 * c13.y * c23y2 - 3 * c10.x * c13x2 * c13.y * c23y2 + 3 * c10.y * c13.x * c13y2 * c23x2 - 2 * c11.x * c12.y * c13x2 * c23y2 + c11.x * c12.y * c13y2 * c23x2 - c11.y * c12.x * c13x2 * c23y2 + 2 * c11.y * c12.x * c13y2 * c23x2 + 3 * c20.x * c13x2 * c13.y * c23y2 - c12.x * c12y2 * c13.y * c23x2 - 3 * c20.y * c13.x * c13y2 * c23x2 + c12x2 * c12.y * c13.x * c23y2 - 3 * c13.x * c22x2 * c13y2 * c22.y + c13x2 * c13.y * c23.x * (6 * c20.y * c23.y + 6 * c21.y * c22.y) + c13x2 * c22.x * c13.y * (6 * c21.y * c23.y + 3 * c22y2) + c13x3 * ( - 2 * c21.y * c22.y * c23.y - c20.y * c23y2 - c22.y * (2 * c21.y * c23.y + c22y2) - c23.y * (2 * c20.y * c23.y + 2 * c21.y * c22.y)), 6 * c11.x * c12.x * c13.x * c13.y * c22.y * c23.y + c11.x * c12.y * c13.x * c22.x * c13.y * c23.y + c11.x * c12.y * c13.x * c13.y * c22.y * c23.x - c11.y * c12.x * c13.x * c22.x * c13.y * c23.y - c11.y * c12.x * c13.x * c13.y * c22.y * c23.x - 6 * c11.y * c12.y * c13.x * c22.x * c13.y * c23.x - 6 * c10.x * c22.x * c13y3 * c23.x + 6 * c20.x * c22.x * c13y3 * c23.x + 6 * c10.y * c13x3 * c22.y * c23.y + 2 * c12y3 * c13.x * c22.x * c23.x - 2 * c12x3 * c13.y * c22.y * c23.y + 6 * c10.x * c13.x * c22.x * c13y2 * c23.y + 6 * c10.x * c13.x * c13y2 * c22.y * c23.x + 6 * c10.y * c13.x * c22.x * c13y2 * c23.x - 3 * c11.x * c12.x * c22.x * c13y2 * c23.y - 3 * c11.x * c12.x * c13y2 * c22.y * c23.x + 2 * c11.x * c12.y * c22.x * c13y2 * c23.x + 4 * c11.y * c12.x * c22.x * c13y2 * c23.x - 6 * c10.x * c13x2 * c13.y * c22.y * c23.y - 6 * c10.y * c13x2 * c22.x * c13.y * c23.y - 6 * c10.y * c13x2 * c13.y * c22.y * c23.x - 4 * c11.x * c12.y * c13x2 * c22.y * c23.y - 6 * c20.x * c13.x * c22.x * c13y2 * c23.y - 6 * c20.x * c13.x * c13y2 * c22.y * c23.x - 2 * c11.y * c12.x * c13x2 * c22.y * c23.y + 3 * c11.y * c12.y * c13x2 * c22.x * c23.y + 3 * c11.y * c12.y * c13x2 * c22.y * c23.x - 2 * c12.x * c12y2 * c13.x * c22.x * c23.y - 2 * c12.x * c12y2 * c13.x * c22.y * c23.x - 2 * c12.x * c12y2 * c22.x * c13.y * c23.x - 6 * c20.y * c13.x * c22.x * c13y2 * c23.x - 6 * c21.x * c13.x * c21.y * c13y2 * c23.x - 6 * c21.x * c13.x * c22.x * c13y2 * c22.y + 6 * c20.x * c13x2 * c13.y * c22.y * c23.y + 2 * c12x2 * c12.y * c13.x * c22.y * c23.y + 2 * c12x2 * c12.y * c22.x * c13.y * c23.y + 2 * c12x2 * c12.y * c13.y * c22.y * c23.x + 3 * c21.x * c22x2 * c13y3 + 3 * c21x2 * c13y3 * c23.x - 3 * c13.x * c21.y * c22x2 * c13y2 - 3 * c21x2 * c13.x * c13y2 * c23.y + c13x2 * c22.x * c13.y * (6 * c20.y * c23.y + 6 * c21.y * c22.y) + c13x2 * c13.y * c23.x * (6 * c20.y * c22.y + 3 * c21y2) + c21.x * c13x2 * c13.y * (6 * c21.y * c23.y + 3 * c22y2) + c13x3 * ( - 2 * c20.y * c22.y * c23.y - c23.y * (2 * c20.y * c22.y + c21y2) - c21.y * (2 * c21.y * c23.y + c22y2) - c22.y * (2 * c20.y * c23.y + 2 * c21.y * c22.y)), c11.x * c21.x * c12.y * c13.x * c13.y * c23.y + c11.x * c12.y * c13.x * c21.y * c13.y * c23.x + c11.x * c12.y * c13.x * c22.x * c13.y * c22.y - c11.y * c12.x * c21.x * c13.x * c13.y * c23.y - c11.y * c12.x * c13.x * c21.y * c13.y * c23.x - c11.y * c12.x * c13.x * c22.x * c13.y * c22.y - 6 * c11.y * c21.x * c12.y * c13.x * c13.y * c23.x - 6 * c10.x * c21.x * c13y3 * c23.x + 6 * c20.x * c21.x * c13y3 * c23.x + 2 * c21.x * c12y3 * c13.x * c23.x + 6 * c10.x * c21.x * c13.x * c13y2 * c23.y + 6 * c10.x * c13.x * c21.y * c13y2 * c23.x + 6 * c10.x * c13.x * c22.x * c13y2 * c22.y + 6 * c10.y * c21.x * c13.x * c13y2 * c23.x - 3 * c11.x * c12.x * c21.x * c13y2 * c23.y - 3 * c11.x * c12.x * c21.y * c13y2 * c23.x - 3 * c11.x * c12.x * c22.x * c13y2 * c22.y + 2 * c11.x * c21.x * c12.y * c13y2 * c23.x + 4 * c11.y * c12.x * c21.x * c13y2 * c23.x - 6 * c10.y * c21.x * c13x2 * c13.y * c23.y - 6 * c10.y * c13x2 * c21.y * c13.y * c23.x - 6 * c10.y * c13x2 * c22.x * c13.y * c22.y - 6 * c20.x * c21.x * c13.x * c13y2 * c23.y - 6 * c20.x * c13.x * c21.y * c13y2 * c23.x - 6 * c20.x * c13.x * c22.x * c13y2 * c22.y + 3 * c11.y * c21.x * c12.y * c13x2 * c23.y - 3 * c11.y * c12.y * c13.x * c22x2 * c13.y + 3 * c11.y * c12.y * c13x2 * c21.y * c23.x + 3 * c11.y * c12.y * c13x2 * c22.x * c22.y - 2 * c12.x * c21.x * c12y2 * c13.x * c23.y - 2 * c12.x * c21.x * c12y2 * c13.y * c23.x - 2 * c12.x * c12y2 * c13.x * c21.y * c23.x - 2 * c12.x * c12y2 * c13.x * c22.x * c22.y - 6 * c20.y * c21.x * c13.x * c13y2 * c23.x - 6 * c21.x * c13.x * c21.y * c22.x * c13y2 + 6 * c20.y * c13x2 * c21.y * c13.y * c23.x + 2 * c12x2 * c21.x * c12.y * c13.y * c23.y + 2 * c12x2 * c12.y * c21.y * c13.y * c23.x + 2 * c12x2 * c12.y * c22.x * c13.y * c22.y - 3 * c10.x * c22x2 * c13y3 + 3 * c20.x * c22x2 * c13y3 + 3 * c21x2 * c22.x * c13y3 + c12y3 * c13.x * c22x2 + 3 * c10.y * c13.x * c22x2 * c13y2 + c11.x * c12.y * c22x2 * c13y2 + 2 * c11.y * c12.x * c22x2 * c13y2 - c12.x * c12y2 * c22x2 * c13.y - 3 * c20.y * c13.x * c22x2 * c13y2 - 3 * c21x2 * c13.x * c13y2 * c22.y + c12x2 * c12.y * c13.x * (2 * c21.y * c23.y + c22y2) + c11.x * c12.x * c13.x * c13.y * (6 * c21.y * c23.y + 3 * c22y2) + c21.x * c13x2 * c13.y * (6 * c20.y * c23.y + 6 * c21.y * c22.y) + c12x3 * c13.y * ( - 2 * c21.y * c23.y - c22y2) + c10.y * c13x3 * (6 * c21.y * c23.y + 3 * c22y2) + c11.y * c12.x * c13x2 * ( - 2 * c21.y * c23.y - c22y2) + c11.x * c12.y * c13x2 * ( - 4 * c21.y * c23.y - 2 * c22y2) + c10.x * c13x2 * c13.y * ( - 6 * c21.y * c23.y - 3 * c22y2) + c13x2 * c22.x * c13.y * (6 * c20.y * c22.y + 3 * c21y2) + c20.x * c13x2 * c13.y * (6 * c21.y * c23.y + 3 * c22y2) + c13x3 * ( - 2 * c20.y * c21.y * c23.y - c22.y * (2 * c20.y * c22.y + c21y2) - c20.y * (2 * c21.y * c23.y + c22y2) - c21.y * (2 * c20.y * c23.y + 2 * c21.y * c22.y)), - c10.x * c11.x * c12.y * c13.x * c13.y * c23.y + c10.x * c11.y * c12.x * c13.x * c13.y * c23.y + 6 * c10.x * c11.y * c12.y * c13.x * c13.y * c23.x - 6 * c10.y * c11.x * c12.x * c13.x * c13.y * c23.y - c10.y * c11.x * c12.y * c13.x * c13.y * c23.x + c10.y * c11.y * c12.x * c13.x * c13.y * c23.x + c11.x * c11.y * c12.x * c12.y * c13.x * c23.y - c11.x * c11.y * c12.x * c12.y * c13.y * c23.x + c11.x * c20.x * c12.y * c13.x * c13.y * c23.y + c11.x * c20.y * c12.y * c13.x * c13.y * c23.x + c11.x * c21.x * c12.y * c13.x * c13.y * c22.y + c11.x * c12.y * c13.x * c21.y * c22.x * c13.y - c20.x * c11.y * c12.x * c13.x * c13.y * c23.y - 6 * c20.x * c11.y * c12.y * c13.x * c13.y * c23.x - c11.y * c12.x * c20.y * c13.x * c13.y * c23.x - c11.y * c12.x * c21.x * c13.x * c13.y * c22.y - c11.y * c12.x * c13.x * c21.y * c22.x * c13.y - 6 * c11.y * c21.x * c12.y * c13.x * c22.x * c13.y - 6 * c10.x * c20.x * c13y3 * c23.x - 6 * c10.x * c21.x * c22.x * c13y3 - 2 * c10.x * c12y3 * c13.x * c23.x + 6 * c20.x * c21.x * c22.x * c13y3 + 2 * c20.x * c12y3 * c13.x * c23.x + 2 * c21.x * c12y3 * c13.x * c22.x + 2 * c10.y * c12x3 * c13.y * c23.y - 6 * c10.x * c10.y * c13.x * c13y2 * c23.x + 3 * c10.x * c11.x * c12.x * c13y2 * c23.y - 2 * c10.x * c11.x * c12.y * c13y2 * c23.x - 4 * c10.x * c11.y * c12.x * c13y2 * c23.x + 3 * c10.y * c11.x * c12.x * c13y2 * c23.x + 6 * c10.x * c10.y * c13x2 * c13.y * c23.y + 6 * c10.x * c20.x * c13.x * c13y2 * c23.y - 3 * c10.x * c11.y * c12.y * c13x2 * c23.y + 2 * c10.x * c12.x * c12y2 * c13.x * c23.y + 2 * c10.x * c12.x * c12y2 * c13.y * c23.x + 6 * c10.x * c20.y * c13.x * c13y2 * c23.x + 6 * c10.x * c21.x * c13.x * c13y2 * c22.y + 6 * c10.x * c13.x * c21.y * c22.x * c13y2 + 4 * c10.y * c11.x * c12.y * c13x2 * c23.y + 6 * c10.y * c20.x * c13.x * c13y2 * c23.x + 2 * c10.y * c11.y * c12.x * c13x2 * c23.y - 3 * c10.y * c11.y * c12.y * c13x2 * c23.x + 2 * c10.y * c12.x * c12y2 * c13.x * c23.x + 6 * c10.y * c21.x * c13.x * c22.x * c13y2 - 3 * c11.x * c20.x * c12.x * c13y2 * c23.y + 2 * c11.x * c20.x * c12.y * c13y2 * c23.x + c11.x * c11.y * c12y2 * c13.x * c23.x - 3 * c11.x * c12.x * c20.y * c13y2 * c23.x - 3 * c11.x * c12.x * c21.x * c13y2 * c22.y - 3 * c11.x * c12.x * c21.y * c22.x * c13y2 + 2 * c11.x * c21.x * c12.y * c22.x * c13y2 + 4 * c20.x * c11.y * c12.x * c13y2 * c23.x + 4 * c11.y * c12.x * c21.x * c22.x * c13y2 - 2 * c10.x * c12x2 * c12.y * c13.y * c23.y - 6 * c10.y * c20.x * c13x2 * c13.y * c23.y - 6 * c10.y * c20.y * c13x2 * c13.y * c23.x - 6 * c10.y * c21.x * c13x2 * c13.y * c22.y - 2 * c10.y * c12x2 * c12.y * c13.x * c23.y - 2 * c10.y * c12x2 * c12.y * c13.y * c23.x - 6 * c10.y * c13x2 * c21.y * c22.x * c13.y - c11.x * c11.y * c12x2 * c13.y * c23.y - 2 * c11.x * c11y2 * c13.x * c13.y * c23.x + 3 * c20.x * c11.y * c12.y * c13x2 * c23.y - 2 * c20.x * c12.x * c12y2 * c13.x * c23.y - 2 * c20.x * c12.x * c12y2 * c13.y * c23.x - 6 * c20.x * c20.y * c13.x * c13y2 * c23.x - 6 * c20.x * c21.x * c13.x * c13y2 * c22.y - 6 * c20.x * c13.x * c21.y * c22.x * c13y2 + 3 * c11.y * c20.y * c12.y * c13x2 * c23.x + 3 * c11.y * c21.x * c12.y * c13x2 * c22.y + 3 * c11.y * c12.y * c13x2 * c21.y * c22.x - 2 * c12.x * c20.y * c12y2 * c13.x * c23.x - 2 * c12.x * c21.x * c12y2 * c13.x * c22.y - 2 * c12.x * c21.x * c12y2 * c22.x * c13.y - 2 * c12.x * c12y2 * c13.x * c21.y * c22.x - 6 * c20.y * c21.x * c13.x * c22.x * c13y2 - c11y2 * c12.x * c12.y * c13.x * c23.x + 2 * c20.x * c12x2 * c12.y * c13.y * c23.y + 6 * c20.y * c13x2 * c21.y * c22.x * c13.y + 2 * c11x2 * c11.y * c13.x * c13.y * c23.y + c11x2 * c12.x * c12.y * c13.y * c23.y + 2 * c12x2 * c20.y * c12.y * c13.y * c23.x + 2 * c12x2 * c21.x * c12.y * c13.y * c22.y + 2 * c12x2 * c12.y * c21.y * c22.x * c13.y + c21x3 * c13y3 + 3 * c10x2 * c13y3 * c23.x - 3 * c10y2 * c13x3 * c23.y + 3 * c20x2 * c13y3 * c23.x + c11y3 * c13x2 * c23.x - c11x3 * c13y2 * c23.y - c11.x * c11y2 * c13x2 * c23.y + c11x2 * c11.y * c13y2 * c23.x - 3 * c10x2 * c13.x * c13y2 * c23.y + 3 * c10y2 * c13x2 * c13.y * c23.x - c11x2 * c12y2 * c13.x * c23.y + c11y2 * c12x2 * c13.y * c23.x - 3 * c21x2 * c13.x * c21.y * c13y2 - 3 * c20x2 * c13.x * c13y2 * c23.y + 3 * c20y2 * c13x2 * c13.y * c23.x + c11.x * c12.x * c13.x * c13.y * (6 * c20.y * c23.y + 6 * c21.y * c22.y) + c12x3 * c13.y * ( - 2 * c20.y * c23.y - 2 * c21.y * c22.y) + c10.y * c13x3 * (6 * c20.y * c23.y + 6 * c21.y * c22.y) + c11.y * c12.x * c13x2 * ( - 2 * c20.y * c23.y - 2 * c21.y * c22.y) + c12x2 * c12.y * c13.x * (2 * c20.y * c23.y + 2 * c21.y * c22.y) + c11.x * c12.y * c13x2 * ( - 4 * c20.y * c23.y - 4 * c21.y * c22.y) + c10.x * c13x2 * c13.y * ( - 6 * c20.y * c23.y - 6 * c21.y * c22.y) + c20.x * c13x2 * c13.y * (6 * c20.y * c23.y + 6 * c21.y * c22.y) + c21.x * c13x2 * c13.y * (6 * c20.y * c22.y + 3 * c21y2) + c13x3 * ( - 2 * c20.y * c21.y * c22.y - c20y2 * c23.y - c21.y * (2 * c20.y * c22.y + c21y2) - c20.y * (2 * c20.y * c23.y + 2 * c21.y * c22.y)), - c10.x * c11.x * c12.y * c13.x * c13.y * c22.y + c10.x * c11.y * c12.x * c13.x * c13.y * c22.y + 6 * c10.x * c11.y * c12.y * c13.x * c22.x * c13.y - 6 * c10.y * c11.x * c12.x * c13.x * c13.y * c22.y - c10.y * c11.x * c12.y * c13.x * c22.x * c13.y + c10.y * c11.y * c12.x * c13.x * c22.x * c13.y + c11.x * c11.y * c12.x * c12.y * c13.x * c22.y - c11.x * c11.y * c12.x * c12.y * c22.x * c13.y + c11.x * c20.x * c12.y * c13.x * c13.y * c22.y + c11.x * c20.y * c12.y * c13.x * c22.x * c13.y + c11.x * c21.x * c12.y * c13.x * c21.y * c13.y - c20.x * c11.y * c12.x * c13.x * c13.y * c22.y - 6 * c20.x * c11.y * c12.y * c13.x * c22.x * c13.y - c11.y * c12.x * c20.y * c13.x * c22.x * c13.y - c11.y * c12.x * c21.x * c13.x * c21.y * c13.y - 6 * c10.x * c20.x * c22.x * c13y3 - 2 * c10.x * c12y3 * c13.x * c22.x + 2 * c20.x * c12y3 * c13.x * c22.x + 2 * c10.y * c12x3 * c13.y * c22.y - 6 * c10.x * c10.y * c13.x * c22.x * c13y2 + 3 * c10.x * c11.x * c12.x * c13y2 * c22.y - 2 * c10.x * c11.x * c12.y * c22.x * c13y2 - 4 * c10.x * c11.y * c12.x * c22.x * c13y2 + 3 * c10.y * c11.x * c12.x * c22.x * c13y2 + 6 * c10.x * c10.y * c13x2 * c13.y * c22.y + 6 * c10.x * c20.x * c13.x * c13y2 * c22.y - 3 * c10.x * c11.y * c12.y * c13x2 * c22.y + 2 * c10.x * c12.x * c12y2 * c13.x * c22.y + 2 * c10.x * c12.x * c12y2 * c22.x * c13.y + 6 * c10.x * c20.y * c13.x * c22.x * c13y2 + 6 * c10.x * c21.x * c13.x * c21.y * c13y2 + 4 * c10.y * c11.x * c12.y * c13x2 * c22.y + 6 * c10.y * c20.x * c13.x * c22.x * c13y2 + 2 * c10.y * c11.y * c12.x * c13x2 * c22.y - 3 * c10.y * c11.y * c12.y * c13x2 * c22.x + 2 * c10.y * c12.x * c12y2 * c13.x * c22.x - 3 * c11.x * c20.x * c12.x * c13y2 * c22.y + 2 * c11.x * c20.x * c12.y * c22.x * c13y2 + c11.x * c11.y * c12y2 * c13.x * c22.x - 3 * c11.x * c12.x * c20.y * c22.x * c13y2 - 3 * c11.x * c12.x * c21.x * c21.y * c13y2 + 4 * c20.x * c11.y * c12.x * c22.x * c13y2 - 2 * c10.x * c12x2 * c12.y * c13.y * c22.y - 6 * c10.y * c20.x * c13x2 * c13.y * c22.y - 6 * c10.y * c20.y * c13x2 * c22.x * c13.y - 6 * c10.y * c21.x * c13x2 * c21.y * c13.y - 2 * c10.y * c12x2 * c12.y * c13.x * c22.y - 2 * c10.y * c12x2 * c12.y * c22.x * c13.y - c11.x * c11.y * c12x2 * c13.y * c22.y - 2 * c11.x * c11y2 * c13.x * c22.x * c13.y + 3 * c20.x * c11.y * c12.y * c13x2 * c22.y - 2 * c20.x * c12.x * c12y2 * c13.x * c22.y - 2 * c20.x * c12.x * c12y2 * c22.x * c13.y - 6 * c20.x * c20.y * c13.x * c22.x * c13y2 - 6 * c20.x * c21.x * c13.x * c21.y * c13y2 + 3 * c11.y * c20.y * c12.y * c13x2 * c22.x + 3 * c11.y * c21.x * c12.y * c13x2 * c21.y - 2 * c12.x * c20.y * c12y2 * c13.x * c22.x - 2 * c12.x * c21.x * c12y2 * c13.x * c21.y - c11y2 * c12.x * c12.y * c13.x * c22.x + 2 * c20.x * c12x2 * c12.y * c13.y * c22.y - 3 * c11.y * c21x2 * c12.y * c13.x * c13.y + 6 * c20.y * c21.x * c13x2 * c21.y * c13.y + 2 * c11x2 * c11.y * c13.x * c13.y * c22.y + c11x2 * c12.x * c12.y * c13.y * c22.y + 2 * c12x2 * c20.y * c12.y * c22.x * c13.y + 2 * c12x2 * c21.x * c12.y * c21.y * c13.y - 3 * c10.x * c21x2 * c13y3 + 3 * c20.x * c21x2 * c13y3 + 3 * c10x2 * c22.x * c13y3 - 3 * c10y2 * c13x3 * c22.y + 3 * c20x2 * c22.x * c13y3 + c21x2 * c12y3 * c13.x + c11y3 * c13x2 * c22.x - c11x3 * c13y2 * c22.y + 3 * c10.y * c21x2 * c13.x * c13y2 - c11.x * c11y2 * c13x2 * c22.y + c11.x * c21x2 * c12.y * c13y2 + 2 * c11.y * c12.x * c21x2 * c13y2 + c11x2 * c11.y * c22.x * c13y2 - c12.x * c21x2 * c12y2 * c13.y - 3 * c20.y * c21x2 * c13.x * c13y2 - 3 * c10x2 * c13.x * c13y2 * c22.y + 3 * c10y2 * c13x2 * c22.x * c13.y - c11x2 * c12y2 * c13.x * c22.y + c11y2 * c12x2 * c22.x * c13.y - 3 * c20x2 * c13.x * c13y2 * c22.y + 3 * c20y2 * c13x2 * c22.x * c13.y + c12x2 * c12.y * c13.x * (2 * c20.y * c22.y + c21y2) + c11.x * c12.x * c13.x * c13.y * (6 * c20.y * c22.y + 3 * c21y2) + c12x3 * c13.y * ( - 2 * c20.y * c22.y - c21y2) + c10.y * c13x3 * (6 * c20.y * c22.y + 3 * c21y2) + c11.y * c12.x * c13x2 * ( - 2 * c20.y * c22.y - c21y2) + c11.x * c12.y * c13x2 * ( - 4 * c20.y * c22.y - 2 * c21y2) + c10.x * c13x2 * c13.y * ( - 6 * c20.y * c22.y - 3 * c21y2) + c20.x * c13x2 * c13.y * (6 * c20.y * c22.y + 3 * c21y2) + c13x3 * ( - 2 * c20.y * c21y2 - c20y2 * c22.y - c20.y * (2 * c20.y * c22.y + c21y2)), - c10.x * c11.x * c12.y * c13.x * c21.y * c13.y + c10.x * c11.y * c12.x * c13.x * c21.y * c13.y + 6 * c10.x * c11.y * c21.x * c12.y * c13.x * c13.y - 6 * c10.y * c11.x * c12.x * c13.x * c21.y * c13.y - c10.y * c11.x * c21.x * c12.y * c13.x * c13.y + c10.y * c11.y * c12.x * c21.x * c13.x * c13.y - c11.x * c11.y * c12.x * c21.x * c12.y * c13.y + c11.x * c11.y * c12.x * c12.y * c13.x * c21.y + c11.x * c20.x * c12.y * c13.x * c21.y * c13.y + 6 * c11.x * c12.x * c20.y * c13.x * c21.y * c13.y + c11.x * c20.y * c21.x * c12.y * c13.x * c13.y - c20.x * c11.y * c12.x * c13.x * c21.y * c13.y - 6 * c20.x * c11.y * c21.x * c12.y * c13.x * c13.y - c11.y * c12.x * c20.y * c21.x * c13.x * c13.y - 6 * c10.x * c20.x * c21.x * c13y3 - 2 * c10.x * c21.x * c12y3 * c13.x + 6 * c10.y * c20.y * c13x3 * c21.y + 2 * c20.x * c21.x * c12y3 * c13.x + 2 * c10.y * c12x3 * c21.y * c13.y - 2 * c12x3 * c20.y * c21.y * c13.y - 6 * c10.x * c10.y * c21.x * c13.x * c13y2 + 3 * c10.x * c11.x * c12.x * c21.y * c13y2 - 2 * c10.x * c11.x * c21.x * c12.y * c13y2 - 4 * c10.x * c11.y * c12.x * c21.x * c13y2 + 3 * c10.y * c11.x * c12.x * c21.x * c13y2 + 6 * c10.x * c10.y * c13x2 * c21.y * c13.y + 6 * c10.x * c20.x * c13.x * c21.y * c13y2 - 3 * c10.x * c11.y * c12.y * c13x2 * c21.y + 2 * c10.x * c12.x * c21.x * c12y2 * c13.y + 2 * c10.x * c12.x * c12y2 * c13.x * c21.y + 6 * c10.x * c20.y * c21.x * c13.x * c13y2 + 4 * c10.y * c11.x * c12.y * c13x2 * c21.y + 6 * c10.y * c20.x * c21.x * c13.x * c13y2 + 2 * c10.y * c11.y * c12.x * c13x2 * c21.y - 3 * c10.y * c11.y * c21.x * c12.y * c13x2 + 2 * c10.y * c12.x * c21.x * c12y2 * c13.x - 3 * c11.x * c20.x * c12.x * c21.y * c13y2 + 2 * c11.x * c20.x * c21.x * c12.y * c13y2 + c11.x * c11.y * c21.x * c12y2 * c13.x - 3 * c11.x * c12.x * c20.y * c21.x * c13y2 + 4 * c20.x * c11.y * c12.x * c21.x * c13y2 - 6 * c10.x * c20.y * c13x2 * c21.y * c13.y - 2 * c10.x * c12x2 * c12.y * c21.y * c13.y - 6 * c10.y * c20.x * c13x2 * c21.y * c13.y - 6 * c10.y * c20.y * c21.x * c13x2 * c13.y - 2 * c10.y * c12x2 * c21.x * c12.y * c13.y - 2 * c10.y * c12x2 * c12.y * c13.x * c21.y - c11.x * c11.y * c12x2 * c21.y * c13.y - 4 * c11.x * c20.y * c12.y * c13x2 * c21.y - 2 * c11.x * c11y2 * c21.x * c13.x * c13.y + 3 * c20.x * c11.y * c12.y * c13x2 * c21.y - 2 * c20.x * c12.x * c21.x * c12y2 * c13.y - 2 * c20.x * c12.x * c12y2 * c13.x * c21.y - 6 * c20.x * c20.y * c21.x * c13.x * c13y2 - 2 * c11.y * c12.x * c20.y * c13x2 * c21.y + 3 * c11.y * c20.y * c21.x * c12.y * c13x2 - 2 * c12.x * c20.y * c21.x * c12y2 * c13.x - c11y2 * c12.x * c21.x * c12.y * c13.x + 6 * c20.x * c20.y * c13x2 * c21.y * c13.y + 2 * c20.x * c12x2 * c12.y * c21.y * c13.y + 2 * c11x2 * c11.y * c13.x * c21.y * c13.y + c11x2 * c12.x * c12.y * c21.y * c13.y + 2 * c12x2 * c20.y * c21.x * c12.y * c13.y + 2 * c12x2 * c20.y * c12.y * c13.x * c21.y + 3 * c10x2 * c21.x * c13y3 - 3 * c10y2 * c13x3 * c21.y + 3 * c20x2 * c21.x * c13y3 + c11y3 * c21.x * c13x2 - c11x3 * c21.y * c13y2 - 3 * c20y2 * c13x3 * c21.y - c11.x * c11y2 * c13x2 * c21.y + c11x2 * c11.y * c21.x * c13y2 - 3 * c10x2 * c13.x * c21.y * c13y2 + 3 * c10y2 * c21.x * c13x2 * c13.y - c11x2 * c12y2 * c13.x * c21.y + c11y2 * c12x2 * c21.x * c13.y - 3 * c20x2 * c13.x * c21.y * c13y2 + 3 * c20y2 * c21.x * c13x2 * c13.y, c10.x * c10.y * c11.x * c12.y * c13.x * c13.y - c10.x * c10.y * c11.y * c12.x * c13.x * c13.y + c10.x * c11.x * c11.y * c12.x * c12.y * c13.y - c10.y * c11.x * c11.y * c12.x * c12.y * c13.x - c10.x * c11.x * c20.y * c12.y * c13.x * c13.y + 6 * c10.x * c20.x * c11.y * c12.y * c13.x * c13.y + c10.x * c11.y * c12.x * c20.y * c13.x * c13.y - c10.y * c11.x * c20.x * c12.y * c13.x * c13.y - 6 * c10.y * c11.x * c12.x * c20.y * c13.x * c13.y + c10.y * c20.x * c11.y * c12.x * c13.x * c13.y - c11.x * c20.x * c11.y * c12.x * c12.y * c13.y + c11.x * c11.y * c12.x * c20.y * c12.y * c13.x + c11.x * c20.x * c20.y * c12.y * c13.x * c13.y - c20.x * c11.y * c12.x * c20.y * c13.x * c13.y - 2 * c10.x * c20.x * c12y3 * c13.x + 2 * c10.y * c12x3 * c20.y * c13.y - 3 * c10.x * c10.y * c11.x * c12.x * c13y2 - 6 * c10.x * c10.y * c20.x * c13.x * c13y2 + 3 * c10.x * c10.y * c11.y * c12.y * c13x2 - 2 * c10.x * c10.y * c12.x * c12y2 * c13.x - 2 * c10.x * c11.x * c20.x * c12.y * c13y2 - c10.x * c11.x * c11.y * c12y2 * c13.x + 3 * c10.x * c11.x * c12.x * c20.y * c13y2 - 4 * c10.x * c20.x * c11.y * c12.x * c13y2 + 3 * c10.y * c11.x * c20.x * c12.x * c13y2 + 6 * c10.x * c10.y * c20.y * c13x2 * c13.y + 2 * c10.x * c10.y * c12x2 * c12.y * c13.y + 2 * c10.x * c11.x * c11y2 * c13.x * c13.y + 2 * c10.x * c20.x * c12.x * c12y2 * c13.y + 6 * c10.x * c20.x * c20.y * c13.x * c13y2 - 3 * c10.x * c11.y * c20.y * c12.y * c13x2 + 2 * c10.x * c12.x * c20.y * c12y2 * c13.x + c10.x * c11y2 * c12.x * c12.y * c13.x + c10.y * c11.x * c11.y * c12x2 * c13.y + 4 * c10.y * c11.x * c20.y * c12.y * c13x2 - 3 * c10.y * c20.x * c11.y * c12.y * c13x2 + 2 * c10.y * c20.x * c12.x * c12y2 * c13.x + 2 * c10.y * c11.y * c12.x * c20.y * c13x2 + c11.x * c20.x * c11.y * c12y2 * c13.x - 3 * c11.x * c20.x * c12.x * c20.y * c13y2 - 2 * c10.x * c12x2 * c20.y * c12.y * c13.y - 6 * c10.y * c20.x * c20.y * c13x2 * c13.y - 2 * c10.y * c20.x * c12x2 * c12.y * c13.y - 2 * c10.y * c11x2 * c11.y * c13.x * c13.y - c10.y * c11x2 * c12.x * c12.y * c13.y - 2 * c10.y * c12x2 * c20.y * c12.y * c13.x - 2 * c11.x * c20.x * c11y2 * c13.x * c13.y - c11.x * c11.y * c12x2 * c20.y * c13.y + 3 * c20.x * c11.y * c20.y * c12.y * c13x2 - 2 * c20.x * c12.x * c20.y * c12y2 * c13.x - c20.x * c11y2 * c12.x * c12.y * c13.x + 3 * c10y2 * c11.x * c12.x * c13.x * c13.y + 3 * c11.x * c12.x * c20y2 * c13.x * c13.y + 2 * c20.x * c12x2 * c20.y * c12.y * c13.y - 3 * c10x2 * c11.y * c12.y * c13.x * c13.y + 2 * c11x2 * c11.y * c20.y * c13.x * c13.y + c11x2 * c12.x * c20.y * c12.y * c13.y - 3 * c20x2 * c11.y * c12.y * c13.x * c13.y - c10x3 * c13y3 + c10y3 * c13x3 + c20x3 * c13y3 - c20y3 * c13x3 - 3 * c10.x * c20x2 * c13y3 - c10.x * c11y3 * c13x2 + 3 * c10x2 * c20.x * c13y3 + c10.y * c11x3 * c13y2 + 3 * c10.y * c20y2 * c13x3 + c20.x * c11y3 * c13x2 + c10x2 * c12y3 * c13.x - 3 * c10y2 * c20.y * c13x3 - c10y2 * c12x3 * c13.y + c20x2 * c12y3 * c13.x - c11x3 * c20.y * c13y2 - c12x3 * c20y2 * c13.y - c10.x * c11x2 * c11.y * c13y2 + c10.y * c11.x * c11y2 * c13x2 - 3 * c10.x * c10y2 * c13x2 * c13.y - c10.x * c11y2 * c12x2 * c13.y + c10.y * c11x2 * c12y2 * c13.x - c11.x * c11y2 * c20.y * c13x2 + 3 * c10x2 * c10.y * c13.x * c13y2 + c10x2 * c11.x * c12.y * c13y2 + 2 * c10x2 * c11.y * c12.x * c13y2 - 2 * c10y2 * c11.x * c12.y * c13x2 - c10y2 * c11.y * c12.x * c13x2 + c11x2 * c20.x * c11.y * c13y2 - 3 * c10.x * c20y2 * c13x2 * c13.y + 3 * c10.y * c20x2 * c13.x * c13y2 + c11.x * c20x2 * c12.y * c13y2 - 2 * c11.x * c20y2 * c12.y * c13x2 + c20.x * c11y2 * c12x2 * c13.y - c11.y * c12.x * c20y2 * c13x2 - c10x2 * c12.x * c12y2 * c13.y - 3 * c10x2 * c20.y * c13.x * c13y2 + 3 * c10y2 * c20.x * c13x2 * c13.y + c10y2 * c12x2 * c12.y * c13.x - c11x2 * c20.y * c12y2 * c13.x + 2 * c20x2 * c11.y * c12.x * c13y2 + 3 * c20.x * c20y2 * c13x2 * c13.y - c20x2 * c12.x * c12y2 * c13.y - 3 * c20x2 * c20.y * c13.x * c13y2 + c12x2 * c20y2 * c12.y * c13.x]
+    roots = equation(*poly, offset=offset)
+    roots = list(roots)
+    roots.sort()
+
+    retsults = []
+    pre = -999999999
+    for t in roots:
+        if t - pre < offset:
+            pre = 0
+            continue
+        pre = t
+
+        retsults.append(t)
+        # xRoots = equation(c13.x, c12.x, c11.x, c10.x - c20.x - t * c21.x - t * t * c22.x - t * t * t * c23.x)
+        # yRoots = equation(c13.y, c12.y, c11.y, c10.y - c20.y - t * c21.y - t * t * c22.y - t * t * t * c23.y)
+
+        # if (len(xRoots) == 0) ^ (len(yRoots) == 0):
+        #     retsults.append(t)
+        #     continue
+
+        # done = False
+        # for xRoot in xRoots:
+        #     for yRoot in yRoots:
+        #         if abs(xRoot - yRoot) < offset:
+        #             retsults.append(t)
+        #             done = True
+        #             break
+        #     if done:
+        #         break
+
+    return retsults
 
 def _getPointFromReMatch(match):
     return Point(next(match).group(), next(match).group())
@@ -234,7 +341,7 @@ def abcRotate(t):
         raise ValueError("Require value is between 0 ~ 1!")
     return math.fabs((t**3 + (1-t)**3 - 1) / (t**3 + (1-t)**3))
 
-def equation(*coefficient):
+def equation(*coefficient, offset=0):
     from numpy import roots
     from numpy import float64
 
@@ -242,17 +349,20 @@ def equation(*coefficient):
     for r in roots(coefficient):
         if isinstance(r, float64):
             re.append(r)
-        elif r.imag == 0:
+        elif abs(r.imag) < offset:
             re.append(r.real)
     return set(re)
 
 class BezierCtrl(object):
     def __init__(self, pos:Point, p1:Point = Point(0,0), p2:Point = None) -> None:
-        # if p1.isOrigin() and (p2 == None or p2.isOrigin()) and pos.isOrigin():
-        #     raise Exception('Empty bezier ctrl!')
         self.p1 = p1
         self.p2 = p2
         self.pos = pos
+
+        # Test
+        # if not self.isValid(1):
+        #     if not (p1.isOrigin() and (p2 == None or p2.isOrigin()) and pos.isOrigin()):
+        #         raise Exception('Empty bezier ctrl!')
 
     @property
     def p2(self):
@@ -265,8 +375,8 @@ class BezierCtrl(object):
     def p2(self, pos:Point):
         self._p2 = pos
 
-    def casteljauPoints(self, t:float, pos:Point=Point()):
-        if t < 0 or t > 1:
+    def casteljauPoints(self, t:float, pos:Point=Point(), limit=True):
+        if limit and (t < 0 or t > 1):
             raise ValueError("Require value is between 0 ~ 1!")
         
         posList = { 'n3': [], 'n2': [], 'n1': Point() }
@@ -278,8 +388,32 @@ class BezierCtrl(object):
         posList['n1'] = (posList['n2'][1] - posList['n2'][0]) * t + posList['n2'][0]
         return posList
 
-    def valueAt(self, t:float, pos:Point=Point()):
-        return self.casteljauPoints(t, pos)['n1']
+    def valueAt(self, t:float, pos:Point=Point(), limit=True):
+        return self.casteljauPoints(t, pos, limit)['n1']
+        
+    def posAt(self, pos:Point=Point(), sPos:Point=Point(), offset=5, interval=[0,1]):
+        ctrl = self
+        radian = 0
+        while ((ctrl.p1.x == 0) ^ (ctrl.p1.y == 0)) or ((ctrl.p2.x == 0) ^ (ctrl.p2.y == 0)):
+            radian += math.pi/90
+            ctrl = self.rotate(radian)
+        if radian != 0:
+            pos = pos.rotate(radian, sPos)
+            
+        tOffset = offset/self.approximatedLength(12)# max(min(offset/self.approximatedLength(12), .001), .1)
+        values = ctrl.roots(x=pos.x, y=pos.y, pos=sPos, offset=tOffset, interval=interval)
+        tList = []
+        for t in values:
+            if ctrl.valueAt(t, sPos).distanceOffset(pos, offset):
+                tList.append(t)
+
+        temp = []
+        pre = -99999
+        for t in tList:
+            if t - pre > tOffset:
+                temp.append(t)
+            pre = t
+        return temp
         
     def valueAtCalculus(self, t:float, pos:Point=Point()):
         if t < 0 or t > 1:
@@ -315,18 +449,34 @@ class BezierCtrl(object):
         tLine = self.tangents(t, len, pos)
         return [(tLine[1] - tLine[0]).perpendicular(), tLine[0]]
 
-    def roots(self, x=None, y=None, pos:Point=Point()):
-        result = set()
+    def roots(self, x=None, y=None, pos:Point=Point(), offset=0, interval=[-9999, 9999]):
+        result = []
         
         three = (self.p1+pos)*3 - (self.p2+pos)*3 - pos + (self.pos+pos)
         two = pos*3 - (self.p1+pos)*6 + (self.p2+pos)*3
         one = (self.p1+pos)*3 - pos*3
         if x != None:
-            result = result.union(equation(three.x, two.x, one.x, pos.x-x))
+            result += equation(three.x, two.x, one.x, pos.x-x, offset=offset)
         if y != None:
-            result = result.union(equation(three.y, two.y, one.y, pos.y-y))
+            result += equation(three.y, two.y, one.y, pos.y-y, offset=offset)
         
-        return result
+        temp = []
+        n = interval[0]-offset
+        result.sort()
+        for r in result:
+            if abs(interval[0] - r) < offset:
+                r = interval[0]
+            elif abs(r - interval[1]) < offset:
+                r = interval[1]
+            if r >= interval[0] and r <= interval[1]:
+                if len(temp) != 0:
+                    if r - n > offset:
+                        temp.append(r)
+                else:
+                    temp.append(r)
+                n = r
+
+        return temp
 
     def extermes(self, radian=0):
         ctrl = self.rotate(radian)
@@ -391,9 +541,11 @@ class BezierCtrl(object):
         return BezierCtrl(p1=self.p1.rotate(radian), p2=self.p2.rotate(radian), pos=self.pos.rotate(radian))
 
     def rotations(self):
-        p1 = self.p1
-        p2 = self.pos
-        t = p1.x * p2.y - p2.x * p1.y
+        tangents = self.tangents(0)
+        p1 = tangents[1] - tangents[0]
+        tangents = self.tangents(1)
+        p2 = tangents[1] - tangents[0]
+        t = round(p1.x * p2.y - p2.x * p1.y, 3)
         if t < 0:
             return -1
         elif t > 0:
@@ -416,122 +568,406 @@ class BezierCtrl(object):
 
         return BezierCtrl(p1=p1-start, p2=p2-start, pos=end-start)
 
-    def intersections(self, pos, other, otherPos:Point, interval=[-9999, 9999]):
-        OFFSET = .001
-        if pos.distance(otherPos) < OFFSET:
-            if self.p1.distance(other.p1) < OFFSET and self.p2.distance(other.p2) < OFFSET and self.pos.distance(other.pos) < OFFSET:
-                return None
-        def check(ctrl1, pos1, list1, ctrl2, pos2, list2):
+    def approximatedLength(self, segment=8):
+        lenPos = []
+        unit = 1 / segment
+        for v in range(1, segment):
+            lenPos.append(self.valueAt(v * unit))
+        lenPos.append(self.pos)
+        length = 0
+        for i in range(0, len(lenPos)-1):
+            length += lenPos[i].distance(lenPos[i+1])
+
+        return length
+
+    def simplifiedCheck(self, pos, other, otherPos:Point, offset=.5):
+        def findTFromPos(ctrl, pos, sPos):
+            # tOffset = offset/ctrl.approximatedLength()*1.1
+            # r1 = ctrl.roots(x=pos.x, y=pos.y, pos=sPos, offset=tOffset, interval=[0, 1])
+            r1 = ctrl.posAt(pos, sPos, 1, interval=[0, 1])
+            if len(r1):
+                r1 = [sum(r1) / len(r1)]
+            return r1
+
+        def pointInLine(pos, linep1, linep2, offset):
+            sx = linep1.x
+            ex = linep2.x
+            if sx > ex:
+                sx, ex = ex, sx
+            sy = linep1.y
+            ey = linep2.y
+            if sy > ey:
+                sy, ey = ey, sy
+
+            return pos.x - sx > -offset and ex - pos.x > -offset and pos.y - sy > -offset and ey - pos.y > -offset
+
+        posE = self.pos+pos
+        otherPosE = other.pos+otherPos
+        result = intersection(pos, posE, otherPos, otherPosE)
+        if type(result) == Point:
+            if pointInLine(result, pos, posE, offset) and pointInLine(result, otherPos, otherPosE, offset):
+                ## Test start
+                # check1 = findTFromPos(self, result, pos)
+                # check2 = findTFromPos(other, result, otherPos)
+                # if len(check1) != 1 or len(check2) != 1:
+                #     check1 = findTFromPos(self, result, pos)
+                #     check2 = findTFromPos(other, result, otherPos)
+                #     raise Exception('Not found pos!')
+                ## Test end
+                return [findTFromPos(self, result, pos), findTFromPos(other, result, otherPos), False]
+        elif result < offset:
+            return [self.posAt(otherPos, pos, 5) + self.posAt(otherPosE, pos, 5), other.posAt(pos, otherPos, 5) + other.posAt(posE, otherPos, 5), True]
+
+        return [[], [], False]
+
+    def intersections(self, pos, other, otherPos:Point, interval=[0, 1]):
+        PIX_OFFSET = 2
+
+        rect1 = self.boundingBox(pos)
+        rect2 = other.boundingBox(otherPos)
+        if not rect1.intersects(rect2, -PIX_OFFSET/2):
+            return [[], []]
+
+        poslist = [[], []]
+        tOffset = [PIX_OFFSET/self.approximatedLength(), PIX_OFFSET/other.approximatedLength()]
+
+        l1 = self.isLine()
+        l2 = other.isLine()
+        if l1 and l2:
+            poslist[0], poslist[1], _ = self.simplifiedCheck(pos, other, otherPos)
+        elif l1:
+            r =  -self.pos.radian()
+            roots = other.rotate(r).roots(y=pos.y, pos=otherPos.rotate(r, pos), offset=tOffset[1], interval=[0, 1])
+            for t in roots: 
+                p = self.posAt(other.valueAt(t, otherPos), pos, 2)
+                if len(p):
+                    poslist[0].append(p[0])
+                    poslist[1].append(t)
+        elif l2:
+            r =  -other.pos.radian()
+            roots = self.rotate(r).roots(y=otherPos.y, pos=pos.rotate(r, otherPos), offset=tOffset[0], interval=[0, 1])
+            for t in roots: 
+                p = other.posAt(self.valueAt(t, pos), otherPos, 1)
+                if len(p):
+                    poslist[1].append(p[0])
+                    poslist[0].append(t)
+        else:
+            roots = intersectBezier3Bezier3(pos, self.p1+pos, self.p2+pos, self.pos+pos, otherPos, other.p1+otherPos, other.p2+otherPos, other.pos+otherPos, tOffset[1])
+            for t in roots:
+                if t >= interval[0] and t <= interval[1]:
+                    p = self.posAt(other.valueAt(t, otherPos), pos, 2)
+                    if len(p):
+                        poslist[0].append(p[0])
+                        poslist[1].append(t)
+            
+            if len(poslist[1]) == 0:
+                return [self.posAt(otherPos, pos, 5) + self.posAt(otherPos+other.pos, pos, 5), other.posAt(pos, otherPos, 5) + other.posAt(pos+self.pos, otherPos, 5)]
+
+        return poslist
+
+    def appIntersections(self, pos, other, otherPos:Point, interval=[0, 1], preCtrl1=None, preCtrl2=None):
+        OVERLAP = -1
+        INCREMENT = 2
+        
+        RADIANT = math.pi / 90
+        PIX_OFFSET = 1
+
+        def simplifiedCheck(ctrl1, pos1, list1, ctrl2, pos2, list2, preCtrl1=None, preCtrl2=None):
+            OFFSET = .01
+            
+            if preCtrl1 == None:
+                preCtrl1 = ctrl1.radianSegmentation(RADIANT)
+            if preCtrl2 == None:
+                preCtrl2 = ctrl2.radianSegmentation(RADIANT)
+
+            temp = [[]]
+            for i in range(0, len(preCtrl1[0])):
+                temp[0].append([])
+            temp.append([])
+            for i in range(0, len(preCtrl2[0])):
+                temp[1].append([])
+
+            p1 = pos1
+            for i1 in range(0, len(preCtrl1[0])):
+                p2 = pos2
+                for i2 in range(0, len(preCtrl2[0])):
+                    r1, r2, overlap = preCtrl1[0][i1].simplifiedCheck(p1, preCtrl2[0][i2], p2, PIX_OFFSET)
+                    if overlap:
+                        temp[0][i1].append(OVERLAP)
+                        for t in r1:
+                            temp[0][i1].append(INCREMENT+t)
+                        temp[1][i2].append(OVERLAP)
+                        for t in r2:
+                            temp[1][i2].append(INCREMENT+t)
+                    else:
+                        temp[0][i1].extend(r1)
+                        temp[1][i2].extend(r2)
+                    p2 += preCtrl2[0][i2].pos
+                p1 += preCtrl1[0][i1].pos
+
+            a = 0
+            lists = [list1, list2]
+            preCtrls = [preCtrl1, preCtrl2]
+            for results in temp:
+                for i in range(0, len(results)):
+                    for r in results[i]:
+                        if r != OVERLAP:
+                            if r >= INCREMENT:
+                                r -= INCREMENT
+                                if r < 0+OFFSET:
+                                    if i != 0 and results[i-1].count(OVERLAP) != 0:
+                                        continue
+                                elif r > 1-OFFSET:
+                                    if i+1 != len(results) and results[i+1].count(OVERLAP) != 0:
+                                        continue
+                            
+                            if i != 0:
+                                preT = preCtrls[a][1][i-1]
+                            else:
+                                preT = 0
+                            current = preCtrls[a][1][i] -preT
+
+                            lists[a].append(r * current + preT)
+                a += 1
+            
+            return len(list1)
+
+        # binarySearch
+        def binarySearch(ctrl1, pos1, list1, ctrl2, pos2, list2):
             rect1 = ctrl1.boundingBox(pos1)
             rect2 = ctrl2.boundingBox(pos2)
 
-            if rect1.intersects(rect2):
-                if rect1.width > OFFSET or rect1.height > OFFSET:
+            if rect1.intersects(rect2, -PIX_OFFSET/2):
+                if ctrl1.curve() > RADIANT and (rect1.width > PIX_OFFSET or rect1.height > PIX_OFFSET):
                     splitCtrl = ctrl1.splitting(.5)
                     ok = False
 
                     rList = []
-                    lList = []
-                    if check(ctrl2, pos2, lList, splitCtrl[0], pos1, rList):
+                    if binarySearch(ctrl2, pos2, list2, splitCtrl[0], pos1, rList):
                         for i in range(0, len(rList)):
                             rList[i] *= .5
                         list1.extend(rList)
-                        list2.extend(lList)
                         ok = True
 
                     rList = []
-                    lList2 = []
-                    if check(ctrl2, pos2, lList2, splitCtrl[1], splitCtrl[0].pos + pos1, rList):
-                        if lList != lList2:
-                            for i in range(0, len(rList)):
-                                rList[i] = rList[i]*.5 + .5
-                            list1.extend(rList)
-                            list2.extend(lList2)
-                            ok = True
+                    if binarySearch(ctrl2, pos2, list2, splitCtrl[1], splitCtrl[0].pos + pos1, rList):
+                        for i in range(0, len(rList)):
+                            rList[i] = rList[i]*.5 + .5
+                        list1.extend(rList)
+                        ok = True
 
                     return ok
-
-                elif rect2.width > OFFSET or rect2.height > OFFSET:
+                elif ctrl2.curve() > RADIANT and (rect2.width > PIX_OFFSET or rect2.height > PIX_OFFSET):
                     splitCtrl = ctrl2.splitting(.5)
+                    ok = False
 
                     rList = []
-                    if check(ctrl1, pos1, list1, splitCtrl[0], pos2, rList):
+                    if binarySearch(ctrl1, pos1, list1, splitCtrl[0], pos2, rList):
                         for i in range(0, len(rList)):
                             rList[i] *= .5
                         list2.extend(rList)
-                        return True
+                        ok = True
                         
                     rList = []
-                    if check(ctrl1, pos1, list1, splitCtrl[1], splitCtrl[0].pos + pos2, rList):
+                    if binarySearch(ctrl1, pos1, list1, splitCtrl[1], splitCtrl[0].pos + pos2, rList):
                         for i in range(0, len(rList)):
                             rList[i] = rList[i]*.5 + .5
                         list2.extend(rList)
-                        return True
+                        ok = True
 
+                    return ok
                 else:
-                    list1.append(.5)
-                    list2.append(.5)
-                    return True
+                    def findTFromPos(ctrl, pos, sPos):
+                        r1 = ctrl.posAt(pos, sPos, 1, interval=[0, 1])
+                        if len(r1):
+                            r1 = [sum(r1) / len(r1)]
+                        return r1
+
+                    b1 = rect1.width > PIX_OFFSET or rect1.height > PIX_OFFSET
+                    b2 = rect2.width > PIX_OFFSET or rect2.height > PIX_OFFSET
+                    # b1 = ctrl1.curve() < RADIANT
+                    # b2 = ctrl2.curve() < RADIANT
+                    if b1 and b2:
+                        r1, r2, _ = ctrl1.simplifiedCheck(pos1, ctrl2, pos2)
+                        list1.extend(r1)
+                        list2.extend(r2)
+                        return len(r1)
+                    elif b1:
+                        r = findTFromPos(ctrl1, ctrl2.valueAt(.5, pos2), pos1)
+                        if len(r):
+                            list1 += r
+                            list2.append(.5)
+                        return len(r)
+                    elif b2:
+                        r = findTFromPos(ctrl2, ctrl1.valueAt(.5, pos1), pos2)
+                        if len(r):
+                            list2 += r
+                            list1.append(.5)
+                        return len(r)
+                    else:
+                        list1.append(.5)
+                        list2.append(.5)
+                        return True
             else:
                 return False
 
         poslist = [[], []]
+        check = binarySearch
         check(self, pos, poslist[0], other, otherPos, poslist[1])
-        #poslist = [poslist[0][::2], poslist[1][::2]]
+        #check = simplifiedCheck
+        #check(self, pos, poslist[0], other, otherPos, poslist[1])
 
+        tOffset = [PIX_OFFSET/self.approximatedLength(), PIX_OFFSET/other.approximatedLength()]
         for i in [0, 1]:
             temp = []
-            for t in poslist[i]:
-                if t >= interval[0] and t <= interval[1]:
-                    temp.append(t)
+            n = interval[0]
+            poslist[i].sort()
+            for r in poslist[i]:
+                if r >= interval[0] and r <= interval[1]:
+                    if len(temp) != 0:
+                        if r - n > tOffset[i]:
+                            if len(temp) and n != temp[-1]:
+                                if n - temp[-1] > tOffset[i]:
+                                    temp.append(n)
+                                else:
+                                    temp[-1] = (temp[-1] + n) / 2
+                            temp.append(r)
+                    else:
+                        temp.append(r)
+                    n = r
+            if len(temp):
+                if n - temp[-1] > tOffset[i]:
+                    temp.append(n)
+                else:
+                    temp[-1] = (temp[-1] + n) / 2
             poslist[i] = temp
 
         return poslist
         
+    def curve(self):
+        circle = math.pi*2
+        sTangents = self.tangents(0)
+        sRadian = sTangents[1].radian(sTangents[0])
+        eTangents = self.tangents(1)
+        eRadian = eTangents[1].radian(eTangents[0])
+
+        r = self.rotations()
+        if r < 0:
+            return (sRadian - eRadian) % circle
+        else:
+            return (eRadian - sRadian) % circle
+
+    def radianSegmentation(self, radian):
+        OFFSET = .01
+        sTangents = self.tangents(0)
+        sRadian = (sTangents[1].radian(sTangents[0]) + math.pi*2) % (math.pi*2)
+        # eTangents = self.tangents(1)
+        # eRadian = (eTangents[1].radian(eTangents[0]) + math.pi*2) % (math.pi*2)
+        r = self.curve()
+        radian = radian % (math.pi*2)
+        nectR = radian * self.rotations()
+
+        if abs(radian) < OFFSET:
+            return [[self], [1]]
+        
+        ctrl = self.rotate(-sRadian)
+        tList = []
+        cList = []
+        preT = 0
+        while abs(r-radian) > abs(radian) and ctrl.isValid(OFFSET):
+            ctrl = ctrl.rotate(-nectR)
+            t = None
+            for n in ctrl.extermes()[1]:
+                if n > 0 and n <= 1 and (t == None or t > n):
+                    t = n
+            tList.append(t * (1-preT) + preT)
+            cList.append(self.splitting(preT)[1].splitting(t)[0])
+            preT = tList[-1]
+            ctrl = ctrl.splitting(t)[1]
+
+            r -= radian
+
+        if len(tList) != 0 and 1 - tList[-1] < OFFSET:
+            if len(tList) > 1:
+                preT = tList[-2]
+            else:
+                preT = 0
+            tList[-1] = 1
+            cList[-1] = self.splitting(preT)[1]
+        else:
+            tList.append(1)
+            cList.append(self.splitting(preT)[1])
+
+        return [cList, tList]
+
     def scale(self, value):
         return BezierCtrl(p1=self.p1.scale(value), p2=self.p2.scale(value), pos=self.pos.scale(value))
 
     def isLine(self):
-        return self.p1.isOrigin() and self.p2.distance(self.pos) == 0
+        OFFSET = .01
+        return abs(self.pos.x * self.p2.y - self.p2.x * self.pos.y) < OFFSET and abs(self.p1.x * self.p2.y - self.p2.x * self.p1.y) < OFFSET
+
+    def isValid(self, offset=0):
+        return max(abs(self.p1.x), abs(self.p2.x), abs(self.pos.x), abs(self.p1.y), abs(self.p2.y), abs(self.pos.y)) > offset
 
 def _connectPaths(paths):
-    OFFSET = 0.001
+    OFFSET = 2
 
     temp = []
-    if len(paths[0]) == 0 or len(paths[1]) == 0:
-        temp.extend(paths[0])
-        temp.extend(paths[1])
-        return temp
+    if len(paths[0]) == 0:
+        if len(paths[1]) == 0:
+            return temp
+        else:
+            paths = [paths[1], paths[0]]
     for aPaths in paths:
         i = 0
         while i < len(aPaths):
+            if len(aPaths) != 1 and aPaths[i].endPos().distanceOffset(aPaths[(i+1) % len(aPaths)].startPos(), OFFSET):
+                j = (i+1) % len(aPaths)
+                aPaths[i].connectPath(aPaths[j])
+                aPaths.pop(j)
+                if j == 0:
+                     i -= 1
+                else:
+                    continue
+
+            if aPaths[i].endPos().distanceOffset(aPaths[i].startPos(), OFFSET):
+                aPaths[i].close()
+
             if aPaths[i].isClose():
                 temp.append(aPaths[i])
                 aPaths.pop(i)
             else:
                 i += 1
-    while len(paths[0]):
-        connectPath = paths[0][0]
-        paths[0].pop(0)
+
+    a = 0
+    while len(paths[0]) or len(paths[1]):
+        if len(paths[a]) == 0:
+            a = (a+1) % 2
+
+        connectPath = paths[a][0]
+        paths[a].pop(0)
+        a = (a+1) % 2
+        if len(paths[a]) == 0:
+            a = (a+1) % 2
         pos = connectPath.endPos()
-        a = 1
         i = 0
-        work = True
-        while work:
+        done = False
+        while not done:
             for p2 in [paths[a][i], paths[a][i].reverse()]:
                 if pos.distanceOffset(p2.startPos(), OFFSET):
-                    connectPath.connectPath(p2)
                     pos = p2.endPos()
+                    connectPath.connectPath(p2)
                     paths[a].pop(i)
                     a = (a+1) % 2
                     i = -1
-                    if connectPath.startPos().distanceOffset(pos, OFFSET):
-                        work = False
+                    if connectPath.startPos().distanceOffset(connectPath.endPos(), OFFSET):
+                        done = True
                         connectPath.close()
+                        temp.append(connectPath)
                     break
             i += 1
-        temp.append(connectPath)
-    
+
     return temp
            
 class BezierPath(object):
@@ -652,7 +1088,7 @@ class BezierPath(object):
             ep = self.endPos()
             sp = self.startPos()
 
-            OFFSET = 0.01
+            OFFSET = 1
             if ep != sp:
                 if ep.distance(sp) < OFFSET:
                     self[-1].pos += sp - ep
@@ -729,21 +1165,114 @@ class BezierPath(object):
         return pos
 
     def containsPos(self, pos):
+        PIX_OFFSET = 3
+        RADIAN = math.pi/90
+        OFFSET = .01
+
         count = 0
         if self.isClose():
+            path = copy.deepcopy(self)
             sPos = self.startPos()
-            for ctrl in self._ctrlList:
-                for t in ctrl.roots(x=pos.x, pos=sPos):
-                    if t >= 0 and t <= 1 and ctrl.valueAt(t, sPos).y < pos.y:
-                        count += 1
+            i = 0
+            r = 0
+            while i < len(path):
+                if sPos.distanceOffset(pos, OFFSET):
+                    return True
+                if sPos.y < pos.y or abs(sPos.x - pos.x) > PIX_OFFSET:
+                    sPos += path[i].pos
+                    i += 1
+                else:
+                    i = 0
+                    r += RADIAN
+                    path = self.rotate(r, pos)
+                    sPos = path.startPos()
+
+                    if r > math.pi * 2:
+                        raise Exception('The graph is too small!')
+
+            for ctrl in path:
+                roots = ctrl.roots(x=pos.x, pos=sPos, offset=OFFSET, interval=[0, 1])
+                for t in roots:
+                    cPosY = ctrl.valueAt(t, sPos, False).y
+                    if abs(cPosY - pos.y) < .01:
+                        return True
+                    if cPosY > pos.y:
+                        if len(roots) == 1:
+                            ePosx = ctrl.pos.x + sPos.x
+                            if (ePosx < pos.x and pos.x < sPos.x) or (ePosx > pos.x and pos.x > sPos.x):
+                                count += 1
+                        else:
+                            count += 1
                 sPos += ctrl.pos
-        return count % 2 == 1
+
+            # for i in range(0, len(self)):xx
+            #     ctrl = self[i]
+            #     OFFSET = min(max(1/ctrl.approximatedLength(), .001), .3)
+
+            #     if ctrl.isLine() and abs(abs(ctrl.pos.radian()) - math.pi/2) < .001:
+            #         sPos += ctrl.pos
+            #         continue
+
+            #         # if abs(cPosY - pos.y) < OFFSET:
+            #         #     return True
+            #         if cPosY+.01 > pos.y:
+            #             ePosx = ctrl.pos.x + sPos.x
+            #             if t > 1-OFFSET:
+            #                 if sPos.x < pos.x:
+            #                     count += .4
+            #                 elif sPos.x > pos.x:
+            #                     count += .6
+            #             elif t < 0+OFFSET:
+            #                 if one:
+            #                     other = BezierPath()
+            #                     other._ctrlList = self._ctrlList[1:]
+            #                     other._ctrlList.append(ctrl)
+            #                     other.start(self.startPos()+ctrl.pos)
+            #                     other.close()
+            #                     return other.containsPos(pos)
+
+            #                 # if round(count) == count:
+            #                 #     count += 1
+            #                 if ePosx > pos.x:
+            #                     if round(count) < count:
+            #                         count += 1
+            #                 elif ePosx < pos.x:
+            #                     if round(count) > count:
+            #                         count += 1
+            #                 count = int(count)
+            #             elif len(rootList) == 1:
+            #                 if (ePosx < pos.x and pos.x < sPos.x) or (ePosx > pos.x and pos.x > sPos.x):
+            #                     count = int(count) + 1
+            #             else:
+            #                 count = int(count) + 1
+            #         elif one and t < .1:
+            #             other = BezierPath()
+            #             other._ctrlList = copy.deepcopy(self._ctrlList[i+1:])
+            #             for j in range(0, i+1):
+            #                 other._ctrlList.append(self[j])
+            #             other.start(sPos + self[i].pos)
+            #             other.close()
+            #             return other.containsPos(pos)
+
+            #     sPos += ctrl.pos
+            #     one = False
+        return int(count) % 2 == 1
     
     def rotations(self):
-        p1 = self[0].pos
-        p2 = self.boundingBox().center() - self.startPos()
+        center = self.boundingBox().center()
 
-        t = p1.x * p2.y - p2.x * p1.y
+        t = 0
+        pos = self.startPos()
+        for ctrl in self:
+            p1 = pos - center
+            p2 = ctrl.pos + p1
+            v = p1.x * p2.y - p2.x * p1.y
+            if v < 0:
+                t -= 1
+            elif v > 0:
+                t += 1
+            pos += ctrl.pos
+
         if t < 0:
             return -1
         elif t > 0:
@@ -780,6 +1309,12 @@ class BezierPath(object):
                 return
 
             radian = normals.rotate(-preNormals.radian()).radian()
+            if abs(radian) > 3.1415926:
+                d = ctrl1.rotations()
+                if d > 0:
+                    radian = -abs(radian)
+                else:
+                    radian = abs(radian)
             if radian > 0:
                 joinProcess(newPath[0], newPath[1], ctrl1, ctrl2, normals, preNormals, radian)
             elif radian < 0:
@@ -916,21 +1451,8 @@ class BezierPath(object):
 
         return newPath
 
-    # def intersections(self, path):
-    #     if not (self.isClose() and path.isClose()):
-    #         raise ArgumentError('Path not closed!')
-
-    #     list1 = copy.deepcopy(self._ctrlList)
-    #     list2 = copy.deepcopy(path._ctrlList)
-
-    #     index1 = 0
-    #     while index1 < len(list1):
-    #         index2 = 0
-    #         while index2 < len(list2):
-    #             pass
-
     def separateFromPath(self, path):
-        OFFSET = 0.001
+        OFFSET = 1
         if not (self.isClose() and path.isClose()):
             raise Exception('Path not closed!')
 
@@ -940,33 +1462,60 @@ class BezierPath(object):
 
         index1 = 0
         pos1 = paths[0].startPos()
+        values = [None, None]
         while index1 < len(paths[0]):
             index2 = 0
             pos2 = paths[1].startPos()
             while index2 < len(paths[1]):
-                values = [None, None]
-                values[0], values[1] = paths[0][index1].intersections(pos1, paths[1][index2], pos2, [0+OFFSET, 1-OFFSET])
+                values[0], values[1] = paths[0][index1].intersections(pos1, paths[1][index2], pos2, [0, 1])
                 for vs in values:
                     vs.sort()
-                    pre = 0
-                    for i in range(len(vs)):
-                        temp = vs[i]
-                        vs[i] = (temp-pre) / (1-pre)
-                        pre = temp
-                for t in values[0]:
-                    paths[0].insert(index1+1, None)
-                    paths[0][index1], paths[0][index1+1] = paths[0][index1].splitting(t)
-                    for i in range(0, len(iList[0])):
-                        if iList[0][i] >= index1 : iList[0][i] += 1
-                    iList[0].append(index1)
-                for t in values[1]:
-                    paths[1].insert(index2+1, None)
-                    paths[1][index2], paths[1][index2+1] = paths[1][index2].splitting(t)
-                    pos2 += paths[1][index2].pos
-                    for i in range(0, len(iList[1])):
-                        if iList[1][i] >= index2 : iList[1][i] += 1
-                    iList[1].append(index2)
-                    index2 += 1
+                if len(values[0]):
+                    t = values[0][0]
+                    temp = paths[0][index1].splitting(t)
+                    for i in [0, 1]:
+                        if not temp[i].isValid(OFFSET):
+                            temp.pop(i)
+                            break
+                    if len(temp) == 2:
+                        paths[0].insert(index1+1, temp[1])
+                        paths[0][index1] = temp[0]
+                        for i in range(0, len(iList[0])):
+                            if iList[0][i] >= index1 : iList[0][i] += 1
+                        iList[0].append(index1)
+                    else:
+                        if t < .5:
+                            preIndex = index1-1
+                            if preIndex < 0:
+                                preIndex = len(paths[0]) - 1
+                            if iList[0].count(preIndex) == 0:
+                                iList[0].append(preIndex)
+                        else:
+                            if iList[0].count(index1) == 0:
+                                iList[0].append(index1)
+                if len(values[1]):
+                    t = values[1][0]
+                    temp = paths[1][index2].splitting(t)
+                    for i in [0, 1]:
+                        if not temp[i].isValid(OFFSET):
+                            temp.pop(i)
+                            break
+                    if len(temp) == 2:
+                        paths[1].insert(index2+1, temp[1])
+                        paths[1][index2] = temp[0]
+                        for i in range(0, len(iList[1])):
+                            if iList[1][i] >= index2 : iList[1][i] += 1
+                        iList[1].append(index2)
+                    else:
+                        if t < .5:
+                            preIndex = index2-1
+                            if preIndex < 0:
+                                preIndex = len(paths[1]) - 1
+                            if iList[1].count(preIndex) == 0:
+                                iList[1].append(preIndex)
+                        else:
+                            if iList[1].count(index2) == 0:
+                                iList[1].append(index2)
                 pos2 += paths[1][index2].pos
                 index2 += 1
             pos1 += paths[0][index1].pos
@@ -1112,7 +1661,7 @@ def createPathfromSvgElem(elem, tag=''):
                 raise AttributeError
             
             if len(bezier):
-                pos += bezier.backCtrl().pos
+                pos = bezier.endPos()
         if (not bezier.isClose()) and (len(bezier)):
             path.add(bezier)
     elif tag == 'polyline':
@@ -1166,13 +1715,13 @@ def createPathfromSvgElem(elem, tag=''):
 class GroupShape(object):
     def __init__(self, shape:BezierShape=BezierShape()) -> None:
         def grouping(path, group):
-            apos = path.startPos()
+            apos = path[0].valueAt(.5, path.startPos())
             for i in range(0, len(group)):
                 p, g = group[i]
                 if p.containsPos(apos):
                     grouping(path, g)
                     return
-                elif path.containsPos(p.startPos()):
+                elif path.containsPos(p[0].valueAt(.5, p.startPos())):
                     group[i] = [path, [group[i]]]
                     return
             group.append([path, []])
@@ -1181,7 +1730,7 @@ class GroupShape(object):
             for i in range(0, len(list)):
                 if len(list) == 0: return
                 r = list[i][0].rotations()
-                if r != d and r != 0:
+                if r != d:# and r != 0:
                     list[i][0] = list[i][0].reverse()
                 direction(-d, list[i][1])
 
@@ -1196,34 +1745,41 @@ class GroupShape(object):
     def __or__(self, group):
         def anding(b1, ws1, b2, ws2):
             tempB = b1 | b2
-            if len(tempB) == 1:
-                tempW = []
-                for w1,_ in ws1:
-                    temp = w1 - p2
-                    if len(temp) != 0:
-                        tempW.append([temp[0], []])
-                    if len(temp) > 1:
-                        for shape in temp[1:]:
-                            if shape.rotations() == 1:
-                                tempW.append([shape, []])
-                            else:
-                                tempW[-1][1].append([temp[1], []])
-                    for w2,_ in ws2:
-                        for u in w2&w1:
-                            tempW.append([u, []])
-                for w2,_ in ws2:
-                    temp = w2 - p1
-                    if len(temp) != 0:
-                        tempW.append([temp[0], []])
-                    if len(temp) > 1:
-                        for shape in temp[1:]:
-                            if shape.rotations() == 1:
-                                tempW.append([shape, []])
-                            else:
-                                tempW[-1][1].append([temp[1], []])
+            tempW = []
 
-                return [True, [tempB[0], tempW]]
-            return [False, [b2, ws2]]
+            incGroup = BezierShape()
+            incGroup._pathList = tempB
+            incGroup = GroupShape(incGroup)._group
+            if len(incGroup) == 2:
+                return [False, [b2, ws2]]
+            for w in incGroup[0][1]:
+                tempW.append(w)
+                
+            for w1,_ in ws1:
+                temp = w1 - p2
+                if len(temp) != 0:
+                    tempW.append([temp[0], []])
+                if len(temp) > 1:
+                    for shape in temp[1:]:
+                        if shape.rotations() == 1:
+                            tempW.append([shape, []])
+                        else:
+                            tempW[-1][1].append([temp[1], []])
+                for w2,_ in ws2:
+                    for u in w2&w1:
+                        tempW.append([u, []])
+            for w2,_ in ws2:
+                temp = w2 - p1
+                if len(temp) != 0:
+                    tempW.append([temp[0], []])
+                if len(temp) > 1:
+                    for shape in temp[1:]:
+                        if shape.rotations() == 1:
+                            tempW.append([shape, []])
+                        else:
+                            tempW[-1][1].append([temp[1], []])
+
+            return [True, [incGroup[0][0], tempW]]
 
         if len(self._group) == 0:
             return group
