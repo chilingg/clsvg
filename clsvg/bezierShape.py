@@ -391,7 +391,7 @@ class BezierCtrl(object):
     def valueAt(self, t:float, pos:Point=Point(), limit=True):
         return self.casteljauPoints(t, pos, limit)['n1']
         
-    def posAt(self, pos:Point=Point(), sPos:Point=Point(), offset=5, interval=[0,1]):
+    def posAt(self, pos:Point=Point(), sPos:Point=Point(), offset=1, interval=[0,1]):
         ctrl = self
         radian = 0
         while ((ctrl.p1.x == 0) ^ (ctrl.p1.y == 0)) or ((ctrl.p2.x == 0) ^ (ctrl.p2.y == 0)):
@@ -584,7 +584,7 @@ class BezierCtrl(object):
         def findTFromPos(ctrl, pos, sPos):
             # tOffset = offset/ctrl.approximatedLength()*1.1
             # r1 = ctrl.roots(x=pos.x, y=pos.y, pos=sPos, offset=tOffset, interval=[0, 1])
-            r1 = ctrl.posAt(pos, sPos, 1, interval=[0, 1])
+            r1 = ctrl.posAt(pos, sPos, .5, interval=[0, 1])
             if len(r1):
                 r1 = [sum(r1) / len(r1)]
             return r1
@@ -616,12 +616,12 @@ class BezierCtrl(object):
                 ## Test end
                 return [findTFromPos(self, result, pos), findTFromPos(other, result, otherPos), False]
         elif result < offset:
-            return [self.posAt(otherPos, pos, 5) + self.posAt(otherPosE, pos, 5), other.posAt(pos, otherPos, 5) + other.posAt(posE, otherPos, 5), True]
+            return [self.posAt(otherPos, pos, 1) + self.posAt(otherPosE, pos, 1), other.posAt(pos, otherPos, 1) + other.posAt(posE, otherPos, 1), True]
 
         return [[], [], False]
 
     def intersections(self, pos, other, otherPos:Point, interval=[0, 1]):
-        PIX_OFFSET = 2
+        PIX_OFFSET = 1
 
         rect1 = self.boundingBox(pos)
         rect2 = other.boundingBox(otherPos)
@@ -639,7 +639,7 @@ class BezierCtrl(object):
             r =  -self.pos.radian()
             roots = other.rotate(r).roots(y=pos.y, pos=otherPos.rotate(r, pos), offset=tOffset[1], interval=[0, 1])
             for t in roots: 
-                p = self.posAt(other.valueAt(t, otherPos), pos, 2)
+                p = self.posAt(other.valueAt(t, otherPos), pos, 1)
                 if len(p):
                     poslist[0].append(p[0])
                     poslist[1].append(t)
@@ -655,7 +655,7 @@ class BezierCtrl(object):
             roots = intersectBezier3Bezier3(pos, self.p1+pos, self.p2+pos, self.pos+pos, otherPos, other.p1+otherPos, other.p2+otherPos, other.pos+otherPos, tOffset[1])
             for t in roots:
                 if t >= interval[0] and t <= interval[1]:
-                    p = self.posAt(other.valueAt(t, otherPos), pos, 2)
+                    p = self.posAt(other.valueAt(t, otherPos), pos, 1)
                     if len(p):
                         poslist[0].append(p[0])
                         poslist[1].append(t)
@@ -1051,7 +1051,10 @@ class BezierPath(object):
         while True:
             temp = []
             for p in newPaths[a]:
-                pos = p[0].valueAt(.5, p.startPos())
+                i = 0
+                while not p[i].isValid(5) and i + 1 != len(p):
+                    i += 1
+                pos = p[i].valueAt(.5, p.startPos())
                 if oldPath[b].containsPos(pos) ^ flag:
                     temp.append(p)
             newPaths[a] = temp
@@ -1755,23 +1758,23 @@ class GroupShape(object):
             for w in incGroup[0][1]:
                 tempW.append(w)
                 
-            for w1,_ in ws1:
-                temp = w1 - p2
+            for w1, _ in ws1:
+                temp = w1 - b2
                 if len(temp) != 0:
-                    tempW.append([temp[0], []])
+                    tempW.append([temp[0], _])
                 if len(temp) > 1:
                     for shape in temp[1:]:
                         if shape.rotations() == 1:
                             tempW.append([shape, []])
                         else:
                             tempW[-1][1].append([temp[1], []])
-                for w2,_ in ws2:
+                for w2, _ in ws2:
                     for u in w2&w1:
                         tempW.append([u, []])
-            for w2,_ in ws2:
-                temp = w2 - p1
+            for w2, _ in ws2:
+                temp = w2 - b1
                 if len(temp) != 0:
-                    tempW.append([temp[0], []])
+                    tempW.append([temp[0], _])
                 if len(temp) > 1:
                     for shape in temp[1:]:
                         if shape.rotations() == 1:
