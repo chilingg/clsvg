@@ -391,7 +391,7 @@ class BezierCtrl(object):
     def valueAt(self, t:float, pos:Point=Point(), limit=True):
         return self.casteljauPoints(t, pos, limit)['n1']
         
-    def posAt(self, pos:Point=Point(), sPos:Point=Point(), offset=1, interval=[0,1]):
+    def posAt(self, pos:Point=Point(), sPos:Point=Point(), offset=.5, interval=[0,1]):
         ctrl = self
         radian = 0
         while ((ctrl.p1.x == 0) ^ (ctrl.p1.y == 0)) or ((ctrl.p2.x == 0) ^ (ctrl.p2.y == 0)):
@@ -639,7 +639,7 @@ class BezierCtrl(object):
             r =  -self.pos.radian()
             roots = other.rotate(r).roots(y=pos.y, pos=otherPos.rotate(r, pos), offset=tOffset[1], interval=[0, 1])
             for t in roots: 
-                p = self.posAt(other.valueAt(t, otherPos), pos, 1)
+                p = self.posAt(other.valueAt(t, otherPos), pos, .5)
                 if len(p):
                     poslist[0].append(p[0])
                     poslist[1].append(t)
@@ -647,7 +647,7 @@ class BezierCtrl(object):
             r =  -other.pos.radian()
             roots = self.rotate(r).roots(y=otherPos.y, pos=pos.rotate(r, otherPos), offset=tOffset[0], interval=[0, 1])
             for t in roots: 
-                p = other.posAt(self.valueAt(t, pos), otherPos, 1)
+                p = other.posAt(self.valueAt(t, pos), otherPos, .5)
                 if len(p):
                     poslist[1].append(p[0])
                     poslist[0].append(t)
@@ -655,7 +655,7 @@ class BezierCtrl(object):
             roots = intersectBezier3Bezier3(pos, self.p1+pos, self.p2+pos, self.pos+pos, otherPos, other.p1+otherPos, other.p2+otherPos, other.pos+otherPos, tOffset[1])
             for t in roots:
                 if t >= interval[0] and t <= interval[1]:
-                    p = self.posAt(other.valueAt(t, otherPos), pos, 1)
+                    p = self.posAt(other.valueAt(t, otherPos), pos, .5)
                     if len(p):
                         poslist[0].append(p[0])
                         poslist[1].append(t)
@@ -1208,57 +1208,6 @@ class BezierPath(object):
                             count += 1
                 sPos += ctrl.pos
 
-            # for i in range(0, len(self)):xx
-            #     ctrl = self[i]
-            #     OFFSET = min(max(1/ctrl.approximatedLength(), .001), .3)
-
-            #     if ctrl.isLine() and abs(abs(ctrl.pos.radian()) - math.pi/2) < .001:
-            #         sPos += ctrl.pos
-            #         continue
-
-            #         # if abs(cPosY - pos.y) < OFFSET:
-            #         #     return True
-            #         if cPosY+.01 > pos.y:
-            #             ePosx = ctrl.pos.x + sPos.x
-            #             if t > 1-OFFSET:
-            #                 if sPos.x < pos.x:
-            #                     count += .4
-            #                 elif sPos.x > pos.x:
-            #                     count += .6
-            #             elif t < 0+OFFSET:
-            #                 if one:
-            #                     other = BezierPath()
-            #                     other._ctrlList = self._ctrlList[1:]
-            #                     other._ctrlList.append(ctrl)
-            #                     other.start(self.startPos()+ctrl.pos)
-            #                     other.close()
-            #                     return other.containsPos(pos)
-
-            #                 # if round(count) == count:
-            #                 #     count += 1
-            #                 if ePosx > pos.x:
-            #                     if round(count) < count:
-            #                         count += 1
-            #                 elif ePosx < pos.x:
-            #                     if round(count) > count:
-            #                         count += 1
-            #                 count = int(count)
-            #             elif len(rootList) == 1:
-            #                 if (ePosx < pos.x and pos.x < sPos.x) or (ePosx > pos.x and pos.x > sPos.x):
-            #                     count = int(count) + 1
-            #             else:
-            #                 count = int(count) + 1
-            #         elif one and t < .1:
-            #             other = BezierPath()
-            #             other._ctrlList = copy.deepcopy(self._ctrlList[i+1:])
-            #             for j in range(0, i+1):
-            #                 other._ctrlList.append(self[j])
-            #             other.start(sPos + self[i].pos)
-            #             other.close()
-            #             return other.containsPos(pos)
-
-            #     sPos += ctrl.pos
-            #     one = False
         return int(count) % 2 == 1
     
     def rotations(self):
@@ -1268,7 +1217,8 @@ class BezierPath(object):
         pos = self.startPos()
         for ctrl in self:
             p1 = pos - center
-            p2 = ctrl.pos + p1
+            # p2 = ctrl.pos + p1
+            p2 = ctrl.valueAt(.5, p1)
             v = p1.x * p2.y - p2.x * p1.y
             if v < 0:
                 t -= 1
@@ -1455,7 +1405,7 @@ class BezierPath(object):
         return newPath
 
     def separateFromPath(self, path):
-        OFFSET = 1
+        OFFSET = .5
         if not (self.isClose() and path.isClose()):
             raise Exception('Path not closed!')
 
@@ -1731,9 +1681,8 @@ class GroupShape(object):
 
         def direction(d, list):
             for i in range(0, len(list)):
-                if len(list) == 0: return
                 r = list[i][0].rotations()
-                if r != d:# and r != 0:
+                if r != d and r != 0:
                     list[i][0] = list[i][0].reverse()
                 direction(-d, list[i][1])
 
