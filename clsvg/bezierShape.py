@@ -1233,7 +1233,6 @@ class BezierPath(object):
         return 0            
 
     def toOutline(self, strokeWidth, jointype='Round', captype='Butt'):
-        VALUE_OFFSET = .01
         radius = strokeWidth / 2
         newPath = [BezierPath(),  BezierPath()]
 
@@ -1253,8 +1252,10 @@ class BezierPath(object):
                 else:
                     raise Exception('Undefine join type: ' + jointype)
                 iList1, iList2 = path2[-1].intersections(Point(), ctrl2, path2[-1].pos + sn - en)
-                path2[-1] = path2[-1].splitting(max(iList1))[0]
-                path2.append(ctrl2.splitting(min(iList2))[1])
+
+                if len(iList1) or 1:
+                    path2[-1] = path2[-1].splitting(max(iList1))[0]
+                    path2.append(ctrl2.splitting(min(iList2))[1])
 
             if len(newPath[0]) == 0:
                 newPath[0].append(ctrl1)
@@ -1264,6 +1265,9 @@ class BezierPath(object):
             radian = normals.rotate(-preNormals.radian()).radian()
             if abs(radian) > 3.1415926:
                 d = ctrl1.rotations()
+                if d == 0:
+                    d = newPath[0][-1].rotations()
+                    
                 if d > 0:
                     radian = -abs(radian)
                 else:
@@ -1283,11 +1287,13 @@ class BezierPath(object):
         newPath[1].start(prePos - preNormals)
 
         for bCtrl in self._ctrlList:
+            pOffset = 2 / bCtrl.approximatedLength(12)
+
             tg = bCtrl.tangents(0)
             roots = bCtrl.extermes(-(tg[0]-tg[1]).radian())
             splitValues = []
             for t in roots[0] + roots[1]:
-                if t < 0+VALUE_OFFSET or t > 1-VALUE_OFFSET:
+                if t < 0+pOffset or t > 1-pOffset:
                     continue
                 splitValues.append(t)
             splitValues.sort()
@@ -1296,12 +1302,12 @@ class BezierPath(object):
             temp = []
             sValue = 0
             for t in splitValues:
-                if t - sValue < VALUE_OFFSET:
+                if t - sValue < pOffset:
                     continue
                 temp.append((t+sValue) / 2)
                 temp.append(t)
                 sValue = t
-            if sValue and sValue + VALUE_OFFSET < 1:
+            if sValue and sValue + pOffset < 1:
                 temp.append((1+sValue) / 2)
             temp.append(1)
             splitValues = temp
@@ -1374,6 +1380,10 @@ class BezierPath(object):
 
             normals,_ = self[0].normals(0, radius)
             join(tailCtrl[0], tailCtrl[1], normals, preNormals)
+            
+            if not(newPath[0].endPos().distanceOffset(newPath[0].startPos(), .1) and newPath[1].endPos().distanceOffset(newPath[1].startPos(), .1)):
+                raise Exception('Closing path error in to outline!')
+
             newPath[0].close()
             newPath[1].close()
             newPath[1] = newPath[1].reverse()
@@ -1399,6 +1409,10 @@ class BezierPath(object):
                 path = newPath[0]
             else:
                 raise Exception('Undefine cap type: ' + captype)
+
+            if not path.endPos().distanceOffset(path.startPos(), .1):
+                raise Exception('Closing path error in to outline!')
+
             path.close()
             newPath = [path]
 
