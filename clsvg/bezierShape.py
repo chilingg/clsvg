@@ -952,7 +952,10 @@ def _connectPaths(paths):
             a = (a+1) % 2
         pos = connectPath.endPos()
         i = 0
-        done = False
+        
+        if len(paths[a]):
+            done = False
+            
         while not done:
             for p2 in [paths[a][i], paths[a][i].reverse()]:
                 if pos.distanceOffset(p2.startPos(), OFFSET):
@@ -1615,6 +1618,10 @@ def createPathfromSvgElem(elem, tag=''):
             elif com == 'V':
                 bezier.connect(Point(0, strToNum(next(numList).group()) - pos.y))
             elif com == 'M':
+                if len(bezier):
+                    path.add(bezier)
+                    bezier = BezierPath()
+
                 bezier.start(_getPointFromReMatch(numList))
                 pos = bezier.startPos()
                 continue
@@ -1681,17 +1688,21 @@ def createPathfromSvgElem(elem, tag=''):
 
 class GroupShape(object):
     def __init__(self, shape:BezierShape=BezierShape()) -> None:
-        def grouping(path, group):
-            apos = path[0].valueAt(.5, path.startPos())
-            for i in range(0, len(group)):
-                p, g = group[i]
+        def grouping(sGroup, dGroup):
+            apos = sGroup[0][0].valueAt(.5, sGroup[0].startPos())
+            for i in range(0, len(dGroup)):
+                p, g = dGroup[i]
                 if p.containsPos(apos):
-                    grouping(path, g)
-                    return
-                elif path.containsPos(p[0].valueAt(.5, p.startPos())):
-                    group[i] = [path, [group[i]]]
-                    return
-            group.append([path, []])
+                    dGroup[i][1] = grouping(sGroup, g)
+                    dGroup = [ x for x in dGroup if x ]
+                    return dGroup
+                elif sGroup[0].containsPos(p[0].valueAt(.5, p.startPos())):
+                    sGroup[1].append(dGroup[i])
+                    dGroup[i] = None
+                    
+            dGroup = [ x for x in dGroup if x ]
+            dGroup.append(sGroup)
+            return dGroup
 
         def direction(d, list):
             for i in range(0, len(list)):
@@ -1703,7 +1714,7 @@ class GroupShape(object):
         group = []
         for path in shape:
             if path.isClose():
-                grouping(path, group)
+                group = grouping([path, []], group)
 
         direction(-1, group)
         self._group = group
@@ -1716,10 +1727,30 @@ class GroupShape(object):
             incGroup = BezierShape()
             incGroup._pathList = tempB
             incGroup = GroupShape(incGroup)._group
-            if len(incGroup) == 2:
+            if len(incGroup) != 1:
                 return [False, [b2, ws2]]
             for w in incGroup[0][1]:
                 tempW.append(w)
+
+            temp = []
+            for _, blacks in ws1:
+                temp2 = []
+                if len(blacks):
+                    for _b, _w in blacks:
+                        tmpGroup = BezierShape()
+                        tmpGroup._pathList = b2 | _b
+                        tmpGroup = GroupShape(tmpGroup)._group
+
+                        if len(tmpGroup) == 1:
+                            b2 = tmpGroup[0][0]
+                            ws2 = tmpGroup[0][1]
+                        else:
+                            temp2.append([_b, _w])
+
+                    temp.append([_, temp2])
+                else:
+                    temp.append([_, blacks])
+            ws1 = temp
                 
             for w1, _ in ws1:
                 temp = w1 - b2
