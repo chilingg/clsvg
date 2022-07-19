@@ -509,6 +509,52 @@ class BezierCtrl(object):
         
         return results
 
+    def extermePoints(self, startPos=Point()):
+        tList = { 0: startPos, 1: startPos + self.pos }
+        minXPos = tList[0].x
+        minYPos = tList[1].y
+        maxXPos = minYPos.x
+        maxYPos = minXPos.y
+
+        if minXPos > maxXPos:
+            minXPos, maxXPos = maxXPos, minXPos
+        if minYPos > maxYPos:
+            minYPos, maxYPos = maxYPos, minYPos
+
+        roots = self.extermes()
+        roots.sort()
+        for t in roots[0]:
+            if t < 0 or t > 1:
+                continue
+            aPos = self.valueAt(t, startPos)
+            tList[t] = aPos
+            
+            if aPos.x < minXPos:
+                minXPos = aPos.x
+            if aPos.x > maxXPos:
+                maxXPos = aPos.x
+        for t in roots[1]:
+            if t < 0 or t > 1:
+                continue
+            aPos = self.valueAt(t, startPos)
+            tList[t] = aPos
+            
+            if aPos.y < minXPos:
+                minXPos = aPos.y
+            if aPos.y > maxXPos:
+                maxXPos = aPos.y
+
+        tOrder = list(tList.keys)
+        tOrder.sort()
+
+        for t in tOrder:
+            pos = tList[t]
+            if pos.x == minXPos or pos.x == maxXPos or pos.y == maxXPos or pos.y == maxYPos:
+                continue
+            del tList[t]
+            
+        return list(tList.values())
+        
     def boundingBox(self, startPos=Point()):
         roots = self.extermes()
         dotListX = []
@@ -639,7 +685,7 @@ class BezierCtrl(object):
             r =  -self.pos.radian()
             roots = other.rotate(r).roots(y=pos.y, pos=otherPos.rotate(r, pos), offset=tOffset[1], interval=[0, 1])
             for t in roots: 
-                p = self.posAt(other.valueAt(t, otherPos), pos, .5)
+                p = self.posAt(other.valueAt(t, otherPos), pos, min(1, self.approximatedLength()/50))
                 if len(p):
                     poslist[0].append(p[0])
                     poslist[1].append(t)
@@ -647,7 +693,7 @@ class BezierCtrl(object):
             r =  -other.pos.radian()
             roots = self.rotate(r).roots(y=otherPos.y, pos=pos.rotate(r, otherPos), offset=tOffset[0], interval=[0, 1])
             for t in roots: 
-                p = other.posAt(self.valueAt(t, pos), otherPos, .5)
+                p = other.posAt(self.valueAt(t, pos), otherPos, min(1, self.approximatedLength()/50))
                 if len(p):
                     poslist[1].append(p[0])
                     poslist[0].append(t)
@@ -655,7 +701,7 @@ class BezierCtrl(object):
             roots = intersectBezier3Bezier3(pos, self.p1+pos, self.p2+pos, self.pos+pos, otherPos, other.p1+otherPos, other.p2+otherPos, other.pos+otherPos, tOffset[1])
             for t in roots:
                 if t >= interval[0] and t <= interval[1]:
-                    p = self.posAt(other.valueAt(t, otherPos), pos, .5)
+                    p = self.posAt(other.valueAt(t, otherPos), pos, min(1, self.approximatedLength()/50))
                     if len(p):
                         poslist[0].append(p[0])
                         poslist[1].append(t)
@@ -1171,9 +1217,13 @@ class BezierPath(object):
         return pos
 
     def containsPos(self, pos):
-        PIX_OFFSET = 3
+        length = 0
+        for ctrl in self:
+            length += ctrl.approximatedLength()
+
+        PIX_OFFSET = min(3, length/10)
         RADIAN = math.pi/90
-        OFFSET = .01
+        OFFSET = min(.01, 1/length)
 
         count = 0
         if self.isClose():
@@ -1413,7 +1463,7 @@ class BezierPath(object):
             else:
                 raise Exception('Undefine cap type: ' + captype)
 
-            if not path.endPos().distanceOffset(path.startPos(), .1):
+            if not path.endPos().distanceOffset(path.startPos(), 1):
                 raise Exception('Closing path error in to outline!')
 
             path.close()
