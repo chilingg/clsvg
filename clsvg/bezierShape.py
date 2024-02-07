@@ -62,6 +62,12 @@ class Point(object):
     def __neg__(self):
         return Point(-self.x, -self.y)
     
+    def __eq__(self, other):
+        return isinstance(other, Point) and self.x == other.x and self.y == other.y
+    
+    def __hash__(self):
+        return hash((self.x, self.y))
+    
     def print(self, f=3):
         return print('({}, {})'.format(round(self.x, f), round(self.y, f)))
 
@@ -87,6 +93,10 @@ class Point(object):
         else:
             raise ValueError('Y value must be numeric!')
 
+    def transform(self, scale, move):
+        self.x = self.x * scale.x + move.x
+        self.y = self.y * scale.y + move.y
+        
     def isOrigin(self):
         return not (self._x or self._y)
 
@@ -946,8 +956,10 @@ class BezierCtrl(object):
 
         return [cList, tList]
 
-    def scale(self, value):
-        return BezierCtrl(p1=self.p1.scale(value), p2=self.p2.scale(value), pos=self.pos.scale(value))
+    def scale(self, scale=Point(1,1)):
+        self.pos.transform(scale, Point())
+        if not self.p1.isOrigin(): self.p1.transform(scale, Point())
+        if self._p2: self.p2.transform(scale, Point())
 
     def isLine(self):
         OFFSET = .01
@@ -1115,6 +1127,11 @@ class BezierPath(object):
 
         return _connectPaths(newPaths)
 
+    def transform(self, scale=Point(1,1), move=Point()):
+        self._startPos.transform(scale, move)
+        for ctrl in self._ctrlList:
+            ctrl.scale(scale)
+
     def insert(self, index, value:BezierCtrl):
         self._ctrlList.insert(index, value)
 
@@ -1126,6 +1143,11 @@ class BezierPath(object):
 
     def popBack(self):
         self._ctrlList.pop()
+
+    def scale(self, value):
+        self._startPos.scale(value)
+        for ctrl in self._ctrlList:
+            ctrl.scale(value)
 
     def startPos(self):
         return self._startPos
@@ -1591,6 +1613,10 @@ class BezierShape(object):
         
     def extend(self, iterable):
         self._pathList.extend(iterable)
+
+    def transform(self, scale=Point(1,1), move=Point()):
+        for path in self._pathList:
+            path.transform(scale, move)
 
     def toSvgElement(self, arrt={}):
         attrStr = ''
