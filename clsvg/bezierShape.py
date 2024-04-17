@@ -9,7 +9,9 @@ import copy
 
 import re
 import math
+import numpy as np
 import numbers
+from functools import reduce
 
 _re_num = re.compile(r'[+-]?\d+(\.\d*)?')
 _re_args = re.compile(r'[a-zA-Z] *([+-]?\d*(\.\d*)?[ ,]?)+')
@@ -352,21 +354,31 @@ def abcRotate(t):
     return math.fabs((t**3 + (1-t)**3 - 1) / (t**3 + (1-t)**3))
 
 def equation(*coefficient, offset=0):
-    from numpy import roots
-    from numpy import float64
-
     re = []
-    for r in roots(coefficient):
-        if isinstance(r, float64):
+    for r in np.roots(coefficient):
+        if isinstance(r, np.float64):
             re.append(r)
-        elif abs(r.imag) < offset:
+        elif abs(r.imag) <= offset:
             re.append(r.real)
     return set(re)
+
+def towPointCurve(p3, t1, pos1, t2, pos2):
+    A = np.array([[1 - t1, t1], [1 - t2, t2]])
+    bx = np.array([(pos1.x - t1**3 * p3.x) / (3 * t1 * (1 - t1)), (pos2.x - t2**3 * p3.x) / (3 * t2 * (1 - t2))])
+    by = np.array([(pos1.y - t1**3 * p3.y) / (3 * t1 * (1 - t1)), (pos2.y - t2**3 * p3.y) / (3 * t2 * (1 - t2))])
+
+    [x1, x2] = np.linalg.solve(A, bx)
+    [y1, y2] = np.linalg.solve(A, by)
+
+    return Point(x1, y1), Point(x2, y2)
 
 class BezierCtrl(object):
     def __init__(self, pos:Point, p1:Point = Point(0,0), p2:Point = None) -> None:
         self.p1 = p1
-        self.p2 = p2
+        if p2 == None:
+            self._p2 = pos
+        else:
+            self._p2 = p2
         self.pos = pos
 
         # Test
@@ -400,6 +412,125 @@ class BezierCtrl(object):
 
     def valueAt(self, t:float, pos:Point=Point(), limit=True):
         return self.casteljauPoints(t, pos, limit)['n1']
+    
+    def controlInto(self, t, pos):
+        if self.p1.isOrigin() and self.p2.distanceOffset(self.pos, 0.1):
+            return self
+        # if self.p1.isOrigin():
+        #     self.p1 = self.tangents(0)[0]
+        # if self.p2.distanceOffset(self.pos, 0.01):
+        #     self.p2 = -self.tangents(1)[0]
+           
+        pos = copy.deepcopy(pos)
+        rotate = 0
+        while True:
+            A1 = self.p1.y
+            B1 = -self.p1.x
+            A2 = self.p2.y - self.pos.y
+            B2 = self.pos.x - self.p2.x
+            C2 = self.p2.x * self.pos.y - self.pos.x * self.p2.y
+            if abs(C2) < 0.1:
+                self.p1 = Point()
+                self.p2 = self.pos
+                return self.rotate(-rotate)
+            
+            if (not self.p1.isOrigin() and A1 * B1 == 0) or (self.p2 != self.pos and A2 * B2 == 0):
+                rotate += 1
+                self = self.rotate(rotate)
+                pos = pos.rotate(rotate)
+            else:
+                break
+        
+        if self.p1.isOrigin():
+            coefficient = np.array([[t]])
+            constant = np.array([
+                (pos.x - t**3 * self.pos.x) / (3 * t * (1 - t))
+            ])
+            [x] = np.linalg.solve(coefficient, constant)
+            self.p2 = Point(x, (-A2 * x - C2) / B2)
+            # if self.valueAt(t).distanceOffset(pos, 0.1):
+            #     self.rotate(-rotate)
+            #     return
+            # else:
+            #     raise Exception('Control to point failed!')
+        elif self.p2.distanceOffset(self.pos, 0.1):
+            coefficient = np.array([[1 - t]])
+            constant = np.array([
+                (pos.x - t**3 * self.pos.x) / (3 * t * (1 - t)) - t * self.p2.x
+            ])
+            [x] = np.linalg.solve(coefficient, constant)
+            self.p1 = Point(x, -A1 / B1 * x)
+            # if self.valueAt(t).distanceOffset(pos, 0.1):
+            #     self.rotate(-rotate)
+            #     return
+            # else:
+            #     raise Exception('Control to point failed!')
+        elif abs((A1 * B2 - B1 * A2)) < 0.01:
+            distance = self.p2.x - self.p1.x
+            coefficient = np.array([[1]])
+            constant = np.array([
+                (pos.x - t**3 * self.pos.x) / (3 * t * (1 - t)) - t * distance
+            ])
+            [x] = np.linalg.solve(coefficient, constant)
+            self.p1 = Point(x, -A1 / B1 * x)
+            self.p2 = Point(x + distance, (-A2 * (x + distance) - C2) / B2)
+        else:
+            coefficient = np.array([
+                [(1 - t), t],
+                [(1 - t) * - A1 / B1, t * -A2 / B2]
+            ])
+            constant = np.array([
+                (pos.x - t**3 * self.pos.x) / (3 * t * (1 - t)),
+                (pos.y - t**3 * self.pos.y) / (3 * t * (1 - t)) + C2 * t / B2
+            ])
+
+            [x1, x2] = np.linalg.solve(coefficient, constant)
+
+            self.p1 = Point(x1, x1 * -A1 / B1)
+            self.p2 = Point(x2, (-A2 * (x2) - C2) / B2)
+
+        return self.rotate(-rotate)
+
+    def lengthAt(self, t:float):
+        def f(v, t):
+            if v == 'x':
+                v1 = self.p1.x
+                v2 = self.p2.x
+                v3 = self.pos.x
+            else:
+                v1 = self.p1.y
+                v2 = self.p2.y
+                v3 = self.pos.y
+
+            return (3 * (1-t)**2 * v1 + 6 * (1-t) * t * (v2 - v1) + 3 * t**2 * (v3 - v2))**2
+        cList = [0.3626837833783620,0.3626837833783620,0.3137066458778873,0.3137066458778873,0.2223810344533745,0.2223810344533745,0.1012285362903763,0.1012285362903763,]
+        tList = [-0.1834346424956498,0.1834346424956498,-0.5255324099163290,0.5255324099163290,-0.7966664774136267,0.7966664774136267,-0.9602898564975363,0.9602898564975363,]
+
+        val = 0
+        t2 = t / 2
+        for i in range(0, len(cList)):
+            val += cList[i] * math.sqrt(f('x', t2 * tList[i] + t2) + f('y', t2 * tList[i] + t2))
+        
+        return t2 * val
+        
+    def inDistance(self, pct:float, offset=1):
+        if pct == 0 or pct == 1:
+            return pct
+        length = self.lengthAt(1)
+        target = length * pct
+        s = 0
+        e = 1
+        for _ in range(0, 50):
+            t = (s + e) / 2
+            pLength = self.lengthAt(t)
+            if abs(pLength - target) < offset:
+                return t
+            elif pLength > target:
+                e = t
+            else:
+                s = t
+
+        return t
         
     def posAt(self, pos:Point=Point(), sPos:Point=Point(), offset=.5, interval=[0,1]):
         ctrl = self
@@ -442,12 +573,19 @@ class BezierCtrl(object):
     def tangents(self, t:float, len=1, pos:Point = Point()):
         b1 = self.p1.isOrigin()
         b2 = self.p2.distance(self.pos) == 0
-        if b1 and b2:
-            return [self.pos*t + pos, self.pos.normalization(len) + self.pos*t + pos]
 
         cPosList = self.casteljauPoints(t, pos)
 
-        tline = cPosList['n2'][1] - cPosList['n2'][0]
+        if b1 and b2:
+            tline = self.pos
+        else:
+            if b1 and t == 0:
+                tline = self.p2
+            elif b2 and t == 1:
+                tline = self.pos - self.p1
+            else:
+                tline = cPosList['n2'][1] - cPosList['n2'][0]
+
         if tline.isOrigin():
             if b1:
                 tline = cPosList['n3'][2] - cPosList['n3'][1]
@@ -459,7 +597,7 @@ class BezierCtrl(object):
         tLine = self.tangents(t, len, pos)
         return [(tLine[1] - tLine[0]).perpendicular(), tLine[0]]
 
-    def roots(self, x=None, y=None, pos:Point=Point(), offset=0, interval=[-9999, 9999]):
+    def roots(self, x=None, y=None, pos:Point=Point(), offset=0, interval=[0, 1]):
         result = []
         
         three = (self.p1+pos)*3 - (self.p2+pos)*3 - pos + (self.pos+pos)
@@ -593,6 +731,9 @@ class BezierCtrl(object):
         rtPos = Point(max(dotListX), max(dotListY))
         return Rect(lbPos, rtPos)
 
+    def reverse(self):
+        return BezierCtrl(p1=self.p2-self.pos, p2=self.p1-self.pos, pos=-self.pos)
+    
     def rotate(self, radian):
         return BezierCtrl(p1=self.p1.rotate(radian), p2=self.p2.rotate(radian), pos=self.pos.rotate(radian))
 
@@ -608,6 +749,13 @@ class BezierCtrl(object):
             return 1
         else:
             return 0
+        
+    def threaPointT(start: Point, p: Point, end: Point):
+        d1 = (start - p).distance()
+        d2 = (end - p).distance()
+        t = d1 / (d1 + d2)
+
+        return t
 
     def fromABC(t:float, tangents, start:Point, end:Point):
         ut = cInterpolation(t)
@@ -967,6 +1115,9 @@ class BezierCtrl(object):
 
     def isValid(self, offset=0):
         return max(abs(self.p1.x), abs(self.p2.x), abs(self.pos.x), abs(self.p1.y), abs(self.p2.y), abs(self.pos.y)) > offset
+    
+    def isNoControl(self):
+        return self.p1.isOrigin() and self.p2.distanceOffset(self.pos, 0.1)
 
 def _connectPaths(paths):
     OFFSET = 2
@@ -1235,6 +1386,12 @@ class BezierPath(object):
     def endPos(self):
         pos = self._startPos
         for ctrl in self._ctrlList:
+            pos += ctrl.pos
+        return pos
+
+    def posIn(self, index):
+        pos = self._startPos
+        for ctrl in self._ctrlList[0:index]:
             pos += ctrl.pos
         return pos
 
@@ -1621,7 +1778,8 @@ class BezierShape(object):
     def toSvgElement(self, arrt={}):
         attrStr = ''
         for aPath in self._pathList:
-            attrStr += 'M {},{} '.format(round(aPath.startPos().x, 3), round(aPath.startPos().y, 3))
+            startPos = aPath.startPos()
+            attrStr += 'M {},{} '.format(round(startPos.x, 3), round(startPos.y, 3))
 
             for bCtrl in aPath:
                 if bCtrl.p1.isOrigin() and bCtrl.p2.isOrigin():
@@ -1632,7 +1790,8 @@ class BezierShape(object):
                     else:
                         attrStr += 'l {},{} '.format(round(bCtrl.pos.x, 3), round(bCtrl.pos.y, 3))
                 else:
-                    attrStr += 'c {},{} {},{} {},{} '.format(round(bCtrl.p1.x, 3), round(bCtrl.p1.y, 3), round(bCtrl.p2.x, 3), round(bCtrl.p2.y, 3), round(bCtrl.pos.x, 3), round(bCtrl.pos.y, 3))
+                    attrStr += 'C {},{} {},{} {},{} '.format(round(bCtrl.p1.x + startPos.x, 3), round(bCtrl.p1.y + startPos.y, 3), round(bCtrl.p2.x + startPos.x, 3), round(bCtrl.p2.y + startPos.y, 3), round(bCtrl.pos.x + startPos.x, 3), round(bCtrl.pos.y + startPos.y, 3))
+                startPos += bCtrl.pos
 
             if aPath.isClose():
                 attrStr += 'z '                    
@@ -1661,6 +1820,82 @@ class BezierShape(object):
 
     def union(self, shape):
         pass
+
+def controlComp(ctrl, comp: BezierPath, pos=Point(), xcenter=0.5):
+    T1 = .333
+    T2 = .666
+
+    def sumFunc(x, y): return x+y
+
+    box: Rect = comp.boundingBox()
+    xorigin = box.width * xcenter + box.left
+    
+    def zval(y):
+        return (y - box.bottom) / box.height
+        # x = BezierCtrl(Point(0, box.height)).roots(y=y - box.bottom, interval=[0, 1])
+        return x[0]
+    
+    def mapTo(p):
+        z = zval(p.y)
+        return ctrl.inDistance(z, 0.1)
+    def normalTo(t, p):
+        return reduce(sumFunc, ctrl.normals(t, p.x - xorigin, pos))
+
+    path = BezierPath()
+    cspos = comp.startPos()
+    startT = mapTo(cspos)
+    pspos = normalTo(startT, cspos)
+    path.start(pspos)
+
+    lenRatio = ctrl.lengthAt(1) / box.height
+
+    for cctrl in comp:
+        tPos = cctrl.pos + cspos
+        endT = mapTo(tPos)
+        cPos = normalTo(endT, tPos) - pspos
+        
+        tPos = cctrl.valueAt(.5) + cspos
+        t1 = mapTo(tPos)
+        pos1 = normalTo(t1, tPos) - pspos
+
+        # tPos = cctrl.valueAt(T1) + cspos
+        # t1 = mapTo(tPos)
+        # pos1 = normalTo(t1, tPos) - pspos
+        # tPos = cctrl.valueAt(T2) + cspos
+        # t2 = mapTo(tPos)
+        # pos2 = normalTo(t2, tPos) - pspos
+        # if t1 == t2:
+        #     p1, p2 = towPointCurve(cPos, T1, pos1, T2, pos2)
+        # else:
+        #     p1, p2 = towPointCurve(cPos, (t1 - startT) / (endT - startT), pos1, (t2 - startT) / (endT - startT), pos2)
+        # path.connect(cPos, p1, p2)
+
+        p1 = cctrl.tangents(0)[1]
+        p2 = cctrl.tangents(1)[1] - cctrl.pos
+        # if cctrl.isNoControl():
+        #     p1 = cctrl.pos / 3
+        #     p2 = cctrl.pos - p1
+        p1.y *= lenRatio
+        if not p1.isOrigin():
+            radian = p1.radian()
+            p1 = ctrl.normals(startT)[0].rotate(radian)
+        p2.y *= lenRatio
+        if not p2.isOrigin():
+            radian = p2.radian()
+            p2 = ctrl.normals(endT)[0].rotate(radian) + cPos
+        else:
+            p2 += cPos
+        newCtrl = BezierCtrl(cPos, p1, p2).controlInto(BezierCtrl.threaPointT(Point(), pos1, cPos), pos1)
+        path.append(newCtrl)
+
+        cspos += cctrl.pos
+        pspos += cPos
+        startT = endT
+
+    if comp.isClose():
+        path.close()
+
+    return path
 
 def createPathfromSvgElem(elem, tag=''):
     if(tag == ''):

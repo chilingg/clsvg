@@ -407,6 +407,206 @@ def test():
     newTree = svgfile.ET.ElementTree(newRoot)
     newTree.write(os.path.join(TEST_OVER_FOLDER, targetFile), encoding = "utf-8", xml_declaration = True)
 
+def testTowPointCurve():
+    targetFile = 'tow_point.svg'
+
+    tree = svgfile.parse(os.path.join(TEST_FOLDER, targetFile))
+    root = tree.getroot()
+
+    newRoot = svgfile.ET.Element(root.tag, root.attrib)
+    newRoot.text = '\n'
+    styleElem = svgfile.ET.Element('style', { 'type': 'text/css' })
+    styleElem.text = MAIN_PATH_STYLE
+    styleElem.tail = '\n'
+    newRoot.append(styleElem)
+    
+    T1 = .25
+    T2 = .75
+    for child in root:
+        tag = svgfile.unPrefix(child.tag)
+        if tag != 'style':
+            path = bezierShape.createPathfromSvgElem(child, tag)
+            newRoot.append(path.toSvgElement({ 'class': 'st0' }))
+            
+            ctrl = path[0][0]
+            spos = path[0].startPos()
+            distance = 16
+
+            for i in range(0, 2):
+                offset_normals = ctrl.normals(0, distance)[0]
+                p0 = spos + offset_normals
+
+                normals = ctrl.normals(1, distance)[0]
+                p3 = ctrl.pos + normals - offset_normals
+                normals = ctrl.normals(T1, distance)[0]
+                p = ctrl.valueAt(T1)
+                pos1 = p + normals - offset_normals
+                normals = ctrl.normals(T2, distance)[0]
+                p = ctrl.valueAt(T2)
+                pos2 = p + normals - offset_normals
+
+                p1, p2 = bezierShape.towPointCurve(p3, T1, pos1, T2, pos2)
+                path = bezierShape.BezierPath()
+                path.start(p0)
+                path.connect(p3, p1, p2)
+
+                shape = bezierShape.BezierShape()
+                shape.add(path)
+                newRoot.append(shape.toSvgElement({ 'class': 'st0' }))
+                distance = -distance
+
+    newTree = svgfile.ET.ElementTree(newRoot)
+    newTree.write(os.path.join(TEST_OVER_FOLDER, targetFile), encoding = "utf-8", xml_declaration = True)
+
+def testTowLineOnePointCurve():
+    targetFile = 'tow_line_one_point.svg'
+
+    tree = svgfile.parse(os.path.join(TEST_FOLDER, targetFile))
+    root = tree.getroot()
+
+    newRoot = svgfile.ET.Element(root.tag, root.attrib)
+    newRoot.text = '\n'
+    styleElem = svgfile.ET.Element('style', { 'type': 'text/css' })
+    styleElem.text = MAIN_PATH_STYLE
+    styleElem.tail = '\n'
+    newRoot.append(styleElem)
+    
+    T = .5
+    for child in root:
+        tag = svgfile.unPrefix(child.tag)
+        if tag != 'style':
+            path = bezierShape.createPathfromSvgElem(child, tag)
+            newRoot.append(path.toSvgElement({ 'stroke': 'red', 'fill': 'none' }))
+            
+            spos = path[0].startPos()
+            distance = 16
+
+            for _ in range(0, 2):
+                ctrl = bezierShape.BezierCtrl(path[0][0].pos, path[0][0].p1, path[0][0].p2)
+                offset_normals = ctrl.normals(0, distance)[0]
+                p0 = spos + offset_normals
+                normals = ctrl.normals(1, distance)[0]
+                p3 = ctrl.pos + normals - offset_normals
+                normals = ctrl.normals(T, distance)[0]
+                p = ctrl.valueAt(T)
+                
+                ctrl.p2 = p3 + ctrl.p2 - ctrl.pos
+                ctrl.pos = p3
+
+                targetPos = p + normals - offset_normals
+                ctrl = ctrl.controlInto(T, targetPos)
+                if not ctrl:
+                    break
+
+                newPath = bezierShape.BezierPath()
+                newPath.start(p0)
+                newPath.append(ctrl)
+
+                shape = bezierShape.BezierShape()
+                shape.add(newPath)
+                newRoot.append(shape.toSvgElement({ 'class': 'st0' }))
+                distance = -distance
+
+    newTree = svgfile.ET.ElementTree(newRoot)
+    newTree.write(os.path.join(TEST_OVER_FOLDER, targetFile), encoding = "utf-8", xml_declaration = True)
+
+def testArcLength():
+    targetFile = 'arc_length.svg'
+
+    tree = svgfile.parse(os.path.join(TEST_FOLDER, targetFile))
+    root = tree.getroot()
+
+    newRoot = svgfile.ET.Element(root.tag, root.attrib)
+    newRoot.text = '\n'
+    styleElem = svgfile.ET.Element('style', { 'type': 'text/css' })
+    styleElem.text = MAIN_PATH_STYLE
+    styleElem.tail = '\n'
+    newRoot.append(styleElem)
+    
+    for child in root:
+        tag = svgfile.unPrefix(child.tag)
+        if tag != 'style':
+            path = bezierShape.createPathfromSvgElem(child, tag)
+            pathElem = path.toSvgElement()
+            pathElem.set('class', 'st0')
+            newRoot.append(pathElem)
+            for bPath in path:
+                startPos = bPath.startPos()
+                for bCtrl in bPath:
+                    z = 0
+                    while z <= 1:
+                        t = z
+                        dir = 1
+                        color = 'green'
+                        for _ in range(0, 2):
+                            nLine = bCtrl.normals(t, 24, startPos)
+                            newRoot.append(svgfile.createLineElem(nLine[1], nLine[0] * dir + nLine[1], { 'stroke-width': '2', 'stroke': color }))
+                            t = bCtrl.inDistance(z)
+                            dir = -1
+                            color = 'red'
+                        
+                        z += .1
+                    startPos += bCtrl.pos
+
+    newTree = svgfile.ET.ElementTree(newRoot)
+    newTree.write(os.path.join(TEST_OVER_FOLDER, targetFile), encoding = "utf-8", xml_declaration = True)
+
+def testControlComp():
+    targetFile = 'control_comp.svg'
+
+    tree = svgfile.parse(os.path.join(TEST_FOLDER, targetFile))
+    root = tree.getroot()
+
+    newRoot = svgfile.ET.Element(root.tag, root.attrib)
+    newRoot.text = '\n'
+    styleElem = svgfile.ET.Element('style', { 'type': 'text/css' })
+    styleElem.text = MAIN_PATH_STYLE
+    styleElem.tail = '\n'
+    newRoot.append(styleElem)
+
+    LENGTH = 360
+    LENGTH1 = 36
+    LENGTH2 = 32
+    LENGTH3 = 14
+    WIDTH1 = 18
+    STROKE_WIDTH = 32
+    comp = bezierShape.BezierPath()
+    comp.start(bezierShape.Point(0, 0))
+    comp.connect(bezierShape.Point(STROKE_WIDTH * 2, LENGTH1))
+    comp.connect(bezierShape.Point(0, LENGTH - LENGTH1))
+    comp.connect(bezierShape.Point(STROKE_WIDTH / -2, 0))
+    comp.connect(bezierShape.Point(STROKE_WIDTH * -1.5 + WIDTH1, -LENGTH + LENGTH2 + LENGTH3))
+    comp.connect(bezierShape.Point(-WIDTH1, -LENGTH2))
+    comp.close()
+    
+    # comp.start(bezierShape.Point(0, 0))
+    # comp.connect(bezierShape.Point(0, 30))
+    # comp.connect(bezierShape.Point(-10, 0))
+    # comp.connect(bezierShape.Point(0, -15))
+    
+    # comp.connect(bezierShape.Point(STROKE_WIDTH/2, 700), p2=bezierShape.Point(0, 400))
+    # comp.connect(bezierShape.Point(STROKE_WIDTH/2, 0))
+    # comp.connect(bezierShape.Point(0, -700))
+    
+    for child in root:
+        tag = svgfile.unPrefix(child.tag)
+        if tag != 'style':
+            path = bezierShape.createPathfromSvgElem(child, tag)
+            pathElem = path.toSvgElement()
+            pathElem.set('stroke', 'red')
+            pathElem.set('fill', 'none')
+            newRoot.append(pathElem)
+            for bPath in path:
+                startPos = bPath.startPos()
+                for bCtrl in bPath:
+                    newPath = bezierShape.controlComp(bCtrl, comp, startPos, .50)
+                    shape = bezierShape.BezierShape()
+                    shape.add(newPath)
+                    newRoot.append(shape.toSvgElement({ 'class': 'st0' }))
+
+    newTree = svgfile.ET.ElementTree(newRoot)
+    newTree.write(os.path.join(TEST_OVER_FOLDER, targetFile), encoding = "utf-8", xml_declaration = True)
+
 if __name__ == '__main__':
     if not os.path.exists(TEST_OVER_FOLDER):
         os.mkdir(TEST_OVER_FOLDER)
@@ -423,4 +623,7 @@ if __name__ == '__main__':
     testSplitting()
     testTangentsAndNormals()
     testRadianSegmentation()
-    
+    testTowPointCurve()
+    testTowLineOnePointCurve()
+    testArcLength()
+    testControlComp()
