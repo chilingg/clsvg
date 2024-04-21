@@ -1854,9 +1854,19 @@ def controlComp(ctrl, comp: BezierPath, pos=Point(), xcenter=0.5):
         endT = mapTo(tPos)
         cPos = normalTo(endT, tPos) - pspos
         
-        tPos = cctrl.valueAt(.5) + cspos
-        t1 = mapTo(tPos)
-        pos1 = normalTo(t1, tPos) - pspos
+        s = 0
+        e = 1
+        for _ in range(20):
+            tPos = cctrl.valueAt((s+e)/2) + cspos
+            t1 = mapTo(tPos)
+            pos1 = normalTo(t1, tPos) - pspos
+            centerT = BezierCtrl.threaPointT(Point(), pos1, cPos)
+            if abs(centerT - 0.5) < 0.1:
+                break
+            elif centerT > 0.5:
+                e = (s+e)/2
+            else:
+                s = (s+e)/2
 
         # tPos = cctrl.valueAt(T1) + cspos
         # t1 = mapTo(tPos)
@@ -1885,7 +1895,7 @@ def controlComp(ctrl, comp: BezierPath, pos=Point(), xcenter=0.5):
             p2 = ctrl.normals(endT)[0].rotate(radian) + cPos
         else:
             p2 += cPos
-        newCtrl = BezierCtrl(cPos, p1, p2).controlInto(BezierCtrl.threaPointT(Point(), pos1, cPos), pos1)
+        newCtrl = BezierCtrl(cPos, p1, p2).controlInto(centerT, pos1)
         path.append(newCtrl)
 
         cspos += cctrl.pos

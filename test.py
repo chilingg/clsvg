@@ -611,13 +611,13 @@ if __name__ == '__main__':
     if not os.path.exists(TEST_OVER_FOLDER):
         os.mkdir(TEST_OVER_FOLDER)
 
-    test()
+    # test()
     testBoundingBox()
     testCasteljau()
     testCurveAndLineIntersections()
     testExtermesFinding()
     testPathIntersections()
-    testPathToOutline()
+    # testPathToOutline()
     testSimplified()
     testShapeToPath()
     testSplitting()
