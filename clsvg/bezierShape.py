@@ -112,11 +112,14 @@ class Point(object):
         v = self - pos
         return Point(v.y, -v.x)
 
-    def radian(self, pos=None):
+    def radian(self, pos=None, negative=True):
         if not pos : pos = Point()
         v = (self - pos).normalization()
         if v.y < 0:
-            return -math.acos(v.x)
+            if negative:
+                return -math.acos(v.x)
+            else:
+                return math.pi*2 - math.acos(v.x)
         else:
             return math.acos(v.x)
 
@@ -135,6 +138,10 @@ class Point(object):
         if not pos : pos = Point()
         v = pos - self
         return math.sqrt(v.x**2 + v.y**2)
+
+    def distanceLine(self, p1, p2):
+        A, B, C = lineareQuation(p1, p2)
+        return abs(A*self.x + B*self.y + C) / math.sqrt(A**2 + B**2)
 
     def distanceOffset(self, pos=None, value=0):
         if not pos : pos = Point()
@@ -221,17 +228,25 @@ class Rect(object):
 
     def area(self):
         return self.width * self.height
+    
+def circleCenter(p1, p2, p3):
+    midpoint11 = (p2 - p1) / 2 + p1
+    midpoint12 = (p2 - p1).perpendicular() + midpoint11
+    midpoint21 = (p2 - p3) / 2 + p3
+    midpoint22 = (p2 - p3).perpendicular() + midpoint21
+
+    return intersection(midpoint11, midpoint12, midpoint21, midpoint22)
+
+def lineareQuation(p1, p2):
+    A = p2.y - p1.y
+    B = p1.x - p2.x
+    if A or B:
+        C = -(p1.x*A + p1.y*B)
+        return [A, B, C]
+    else:
+        return None
 
 def intersection(ps1, pe1, ps2, pe2, offset=0.002):
-    def lineareQuation(p1, p2):
-        A = p2.y - p1.y
-        B = p1.x - p2.x
-        if A or B:
-            C = -(p1.x*A + p1.y*B)
-            return [A, B, C]
-        else:
-            return None
-
     A1, B1, C1 = lineareQuation(ps1, pe1)
     A2, B2, C2 = lineareQuation(ps2, pe2)
     if abs(A1*B2 - A2*B1) > abs(offset*B1*B2):
@@ -409,18 +424,90 @@ class BezierCtrl(object):
         posList['n2'].append((posList['n3'][2] - posList['n3'][1]) * t + posList['n3'][1])
         posList['n1'] = (posList['n2'][1] - posList['n2'][0]) * t + posList['n2'][0]
         return posList
+    
+    def extension(self, t:float):
+        cList = self.casteljauPoints(t, limit=False)
+        return BezierCtrl(cList['n1'], cList['n3'][0], cList['n2'][0])
 
     def valueAt(self, t:float, pos:Point=Point(), limit=True):
         return self.casteljauPoints(t, pos, limit)['n1']
+
+    def derivation(self, t, n=1):
+        if n == 1:
+            return (self.pos*3 - self.p2*9 + self.p1*9) * t**2 + (self.p2*6 - self.p1*12) * t + self.p1*3
+        elif n == 2:
+            return (self.pos*6 - self.p2*18 + self.p1*18) * t + self.p2*6 - self.p1*12
+        elif n == 3:
+            return self.pos*6 - self.p2*18 + self.p1*18
+
+    # p1请勿平行于p2
+    def threeTangentCurver(self, k, pos, tVal=False):
+        SCALE = 1
+
+        ctrl = BezierCtrl(self.pos*1, self.p1*1, self.p2*1)
+        ctrl.scale(Point(SCALE,SCALE))
+        pos *= SCALE
+
+        if ctrl.isLine():
+            return ctrl
+        if ctrl.p1.distanceOffset(value=0.01):
+            ctrl.p1 = ctrl.tangents(0, 10)[0]
+        if ctrl.p2.distanceOffset(ctrl.pos, 0.01):
+            ctrl.p2 = -ctrl.tangents(1, 10)[0]
+        
+        k = copy.deepcopy(k)
+        pos = copy.deepcopy(pos)
+        rotate = 0
+        while True:
+            if ctrl.p1.x * ctrl.p1.y * (ctrl.p2.x - ctrl.pos.x) * (ctrl.p2.y - ctrl.pos.y) * k.x * k.y == 0 :
+                rotate += 1
+                ctrl = ctrl.rotate(rotate)
+                k = k.rotate(rotate)
+                pos = pos.rotate(rotate)
+            else:
+                break
+        
+        A1, B1, _ = lineareQuation(ctrl.p1, Point())
+        A2, B2, C2 = lineareQuation(ctrl.p2, ctrl.pos)
+
+        # xxxx = abs(A1*B2-A2*B1)
+        
+        m = pos.y
+        n = pos.x
+        p6 = ctrl.pos.y
+        p3 = ctrl.pos.x
+        k1 = k.x
+        k2 = k.y
+
+        c3 = (A1*A2*k1*p3 + 2*A1*B2*k1*p6 - A1*B2*k2*p3 + 3*A1*C2*k1 - A2*B1*k1*p6 + 2*A2*B1*k2*p3 + B1*B2*k2*p6 + 3*B1*C2*k2)
+        c2 = (-3*A1*C2*k1 - 3*B1*C2*k2)
+        c1 = (-3*A1*B2*k1*m + 3*A1*B2*k2*n + 3*A2*B1*k1*m - 3*A2*B1*k2*n)
+        c = -A1*A2*k1*n + A1*B2*k1*m - 2*A1*B2*k2*n - 2*A2*B1*k1*m + A2*B1*k2*n - B1*B2*k2*m
+
+        oldRadian = [ctrl.p1.radian(), (ctrl.p2 - ctrl.pos).radian()]
+        newCtrl = None
+        results = equation(c3, c2, c1 , c, offset=0.1)
+        for t in results:
+            if t > 0 and t < 1:
+                newP1 = Point(B1*(B2*p6*t**3+A2*p3*t**3+3*C2*t**3-3*C2*t**2-A2*n-B2*m)/(3*(A1*B2-A2*B1)*(t-1)**2*t), -A1*(B2*p6*t**3+A2*p3*t**3+3*C2*t**3-3*C2*t**2-A2*n-B2*m)/(3*(A1*B2-A2*B1)*(t-1)**2*t))
+                newP2 = Point((B1*B2*p6*t**3+A1*B2*p3*t**3+3*B1*C2*t**3-3*B1*C2*t**2-A1*B2*n-B1*B2*m)/(3*(A1*B2-A2*B1)*(t-1)*t**2), -(A2*B1*p6*t**3+A1*A2*p3*t**3+3*A1*C2*t**3-3*A1*C2*t**2-A1*A2*n-A2*B1*m)/(3*(A1*B2-A2*B1)*(t-1)*t**2))
+                newRadian = [newP1.radian(), (newP2 - ctrl.pos).radian()]
+                if abs(oldRadian[0]-newRadian[0] + oldRadian[1]-newRadian[1]) < 0.001:
+                    newCtrl = BezierCtrl(ctrl.pos, newP1, newP2)
+                    break
+        if newCtrl:
+            newCtrl.scale(Point(1/SCALE,1/SCALE))
+            if tVal:
+                return newCtrl.rotate(-rotate), t
+            else:
+                return newCtrl.rotate(-rotate)
+        else:
+            return newCtrl
     
     def controlInto(self, t, pos):
         if self.p1.isOrigin() and self.p2.distanceOffset(self.pos, 0.1):
             return self
-        # if self.p1.isOrigin():
-        #     self.p1 = self.tangents(0)[0]
-        # if self.p2.distanceOffset(self.pos, 0.01):
-        #     self.p2 = -self.tangents(1)[0]
-           
+
         pos = copy.deepcopy(pos)
         rotate = 0
         while True:
@@ -513,13 +600,13 @@ class BezierCtrl(object):
         
         return t2 * val
         
-    def inDistance(self, pct:float, offset=1):
+    def inDistance(self, pct:float, offset=1, interval=[0,1]):
         if pct == 0 or pct == 1:
             return pct
         length = self.lengthAt(1)
         target = length * pct
-        s = 0
-        e = 1
+        s = interval[0]
+        e = interval[1]
         for _ in range(0, 50):
             t = (s + e) / 2
             pLength = self.lengthAt(t)
@@ -570,9 +657,20 @@ class BezierCtrl(object):
         cPosList = self.casteljauPoints(t, pos)
         return [ BezierCtrl(p1=cPosList['n3'][0]-pos, p2=cPosList['n2'][0]-pos, pos=cPosList['n1']-pos), BezierCtrl(p1=cPosList['n2'][1]-cPosList['n1'], p2=cPosList['n3'][2]-cPosList['n1'], pos=self.pos-cPosList['n1']) ]
 
+    def splittings(self, tList):
+        preT = 0
+        ctrl = self
+        r = []
+        for t in tList:
+            splits = ctrl.splitting((t-preT)/(1-preT))
+            r.append(splits[0])
+            ctrl = splits[1]
+        r.append(ctrl)
+        return r
+
     def tangents(self, t:float, len=1, pos:Point = Point()):
         b1 = self.p1.isOrigin()
-        b2 = self.p2.distance(self.pos) == 0
+        b2 = self.p2.distance(self.pos) < 0.001
 
         cPosList = self.casteljauPoints(t, pos)
 
@@ -592,6 +690,29 @@ class BezierCtrl(object):
             elif b2:
                 tline = cPosList['n3'][1] - cPosList['n3'][0]
         return [cPosList['n1'], tline.normalization(len) + cPosList['n1']]
+
+    def tangent(self, t:float, len=1):
+        b1 = self.p1.isOrigin()
+        b2 = self.p2.distance(self.pos) < 0.001
+
+        cPosList = self.casteljauPoints(t, limit=False)
+
+        if b1 and b2:
+            tline = self.pos
+        else:
+            if b1 and t == 0:
+                tline = self.p2
+            elif b2 and t == 1:
+                tline = self.pos - self.p1
+            else:
+                tline = cPosList['n2'][1] - cPosList['n2'][0]
+
+        if tline.isOrigin():
+            if b1:
+                tline = cPosList['n3'][2] - cPosList['n3'][1]
+            elif b2:
+                tline = cPosList['n3'][1] - cPosList['n3'][0]
+        return tline.normalization(len)
 
     def normals(self, t:float, len=1, pos:Point = Point()):
         tLine = self.tangents(t, len, pos)
@@ -625,6 +746,19 @@ class BezierCtrl(object):
                 n = r
 
         return temp
+    
+    def extermesXY(self):
+        def process(v1, v2, v3):
+            a = 3*v3 - 6*v2 + 3*v1
+            b = 6 * (v2 - v1)
+            c = 3*v1
+
+            return [t for t in equation(a,b,c) if t > 0 and t < 1]
+        
+        results = []
+        results.append(process(self.p1.x, self.p2.x - self.p1.x, self.pos.x - self.p2.x))
+        results.append(process(self.p1.y, self.p2.y - self.p1.y, self.pos.y - self.p2.y))
+        return results
 
     def extermes(self, radian=0):
         ctrl = self.rotate(radian)
@@ -750,22 +884,50 @@ class BezierCtrl(object):
         else:
             return 0
         
-    def threaPointT(start: Point, p: Point, end: Point):
+    def threePointT(start: Point, p: Point, end: Point):
         d1 = (start - p).distance()
         d2 = (end - p).distance()
         t = d1 / (d1 + d2)
 
         return t
+    
+    def threePointCtrl(start: Point, p: Point, end: Point):
+        t = BezierCtrl.threePointT(start, p, end)
+        cCenter = circleCenter(start, p, end)
+        if isinstance(cCenter, Point):
+            tangents = (p - cCenter).perpendicular().normalization()
+        else:
+            tangents = (start - end).normalization()
+        d = (start - end).distance() / 3
 
-    def fromABC(t:float, tangents, start:Point, end:Point):
+        delt = (math.atan2(end.y - start.y, end.x - start.x) - math.atan2(p.y - start.y, p.x - start.x) + 2 * math.pi) % (2*math.pi)
+        if delt < 0 or delt > math.pi:
+            d = -d
+
+        e1 = p + tangents * t * d
+        e2 = p - tangents * (1-t) * d
+
+        return BezierCtrl.fromABC([e1, e2], start, p, end)
+    
+    def pointAndTangent(tangent: Point, start: Point, p: Point, end: Point, d, t = None):
+        if t == None:
+            t = BezierCtrl.threePointT(start, p, end)
+        length = (end - start).distance() * d
+
+        e1 = p - tangent * t * length
+        e2 = p + tangent * (1-t) * length
+
+        return BezierCtrl.fromABC([e1, e2], start, p, end)
+
+    def fromABC(tangents, start:Point, pos, end:Point):
+        t = abs((pos-tangents[0]).distance() / (tangents[1] - tangents[0]).distance())
         ut = cInterpolation(t)
         c = start*ut + end*(1-ut)
-        b = tangents[0]
+        b = pos
         a = b - (c-b) / abcRotate(t)
 
-        ts = tangents[1] - b
-        v1 = ((b-(ts*t) / (1-t)) - a*t) / (1-t)
-        v2 = ((b+ts) - a*(1-t)) / t
+        v1 = (tangents[0] - a*t) / (1-t)
+        v2 = (tangents[1] - a*(1-t)) / t
 
         p1 = (v1 - start*(1-t)) / t
         p2 = (v2 - end*t) / (1-t)
@@ -1062,7 +1224,7 @@ class BezierCtrl(object):
             return (eRadian - sRadian) % circle
 
     def radianSegmentation(self, radian):
-        OFFSET = .01
+        OFFSET = .1
         sTangents = self.tangents(0)
         sRadian = (sTangents[1].radian(sTangents[0]) + math.pi*2) % (math.pi*2)
         # eTangents = self.tangents(1)
@@ -1078,7 +1240,7 @@ class BezierCtrl(object):
         tList = []
         cList = []
         preT = 0
-        while abs(r-radian) > abs(radian) and ctrl.isValid(OFFSET):
+        while abs(r) > abs(radian) and ctrl.isValid(OFFSET):
             ctrl = ctrl.rotate(-nectR)
             t = None
             for n in ctrl.extermes()[1]:
@@ -1107,7 +1269,7 @@ class BezierCtrl(object):
     def scale(self, scale=Point(1,1)):
         self.pos.transform(scale, Point())
         if not self.p1.isOrigin(): self.p1.transform(scale, Point())
-        if self._p2: self.p2.transform(scale, Point())
+        if self._p2 and self._p2 != self.pos: self.p2.transform(scale, Point())
 
     def isLine(self):
         OFFSET = .01
@@ -1366,7 +1528,7 @@ class BezierPath(object):
         for ctrl in self._ctrlList:
             newPath.append(ctrl.rotate(radian))
 
-        if self.isClose:
+        if self.isClose():
             newPath.close()
         return newPath
         
@@ -1463,6 +1625,45 @@ class BezierPath(object):
         elif t > 0:
             return 1
         return 0            
+
+    def splitting(self, p1: Point, p2: Point):
+        radian = p2.radian(p1)
+        rPath = self.rotate(-radian, p1)
+
+        result = [[], []]
+        pos = rPath.startPos()
+        newPath = BezierPath()
+        newPath.start(pos)
+        if pos.y < p1.y:
+            index = 0
+        else:
+            index = 1
+        startIndex = index
+
+        for ctrl in rPath:
+            roots = ctrl.roots(y=p1.y, pos=pos)
+            if len(roots):
+                splits = ctrl.splittings(roots)
+                for sCtrl in splits[:-1]:
+                    newPath.append(sCtrl)
+                    result[index].append(newPath.rotate(radian, p1))
+                    pos += sCtrl.pos
+                    newPath = BezierPath()
+                    newPath.start(pos)
+                    index = (index+1) % 2
+                newPath.append(splits[-1])
+                pos += splits[-1].pos
+            else:
+                newPath.append(ctrl)
+                pos += ctrl.pos
+        
+        if rPath.isClose() and startIndex == index:
+            newPath.connectPath(result[index][0])
+            result[index][0] = newPath.rotate(radian, p1)
+        else:
+            result[index].append(newPath.rotate(radian, p1))
+        
+        return result
 
     def toOutline(self, strokeWidth, jointype='Round', captype='Butt'):
         radius = strokeWidth / 2
@@ -1822,9 +2023,6 @@ class BezierShape(object):
         pass
 
 def controlComp(ctrl, comp: BezierPath, pos=Point(), xcenter=0.5):
-    T1 = .333
-    T2 = .666
-
     def sumFunc(x, y): return x+y
 
     box: Rect = comp.boundingBox()
@@ -1849,58 +2047,75 @@ def controlComp(ctrl, comp: BezierPath, pos=Point(), xcenter=0.5):
 
     lenRatio = ctrl.lengthAt(1) / box.height
 
+    isLine = ctrl.isLine()
     for cctrl in comp:
-        tPos = cctrl.pos + cspos
-        endT = mapTo(tPos)
-        cPos = normalTo(endT, tPos) - pspos
-        
-        s = 0
-        e = 1
-        for _ in range(20):
-            tPos = cctrl.valueAt((s+e)/2) + cspos
-            t1 = mapTo(tPos)
-            pos1 = normalTo(t1, tPos) - pspos
-            centerT = BezierCtrl.threaPointT(Point(), pos1, cPos)
-            if abs(centerT - 0.5) < 0.1:
-                break
-            elif centerT > 0.5:
-                e = (s+e)/2
-            else:
-                s = (s+e)/2
-
-        # tPos = cctrl.valueAt(T1) + cspos
-        # t1 = mapTo(tPos)
-        # pos1 = normalTo(t1, tPos) - pspos
-        # tPos = cctrl.valueAt(T2) + cspos
-        # t2 = mapTo(tPos)
-        # pos2 = normalTo(t2, tPos) - pspos
-        # if t1 == t2:
-        #     p1, p2 = towPointCurve(cPos, T1, pos1, T2, pos2)
-        # else:
-        #     p1, p2 = towPointCurve(cPos, (t1 - startT) / (endT - startT), pos1, (t2 - startT) / (endT - startT), pos2)
-        # path.connect(cPos, p1, p2)
-
-        p1 = cctrl.tangents(0)[1]
-        p2 = cctrl.tangents(1)[1] - cctrl.pos
-        # if cctrl.isNoControl():
-        #     p1 = cctrl.pos / 3
-        #     p2 = cctrl.pos - p1
-        p1.y *= lenRatio
-        if not p1.isOrigin():
-            radian = p1.radian()
-            p1 = ctrl.normals(startT)[0].rotate(radian)
-        p2.y *= lenRatio
-        if not p2.isOrigin():
-            radian = p2.radian()
-            p2 = ctrl.normals(endT)[0].rotate(radian) + cPos
+        newComps = []
+        split = False
+        if isLine or cctrl.isLine():
+            newComps.append(cctrl)
         else:
-            p2 += cPos
-        newCtrl = BezierCtrl(cPos, p1, p2).controlInto(centerT, pos1)
-        path.append(newCtrl)
+            sList = cctrl.radianSegmentation(.157)[0]
+            if len(sList) == 1:
+                newComps.append(cctrl)
+            else:
+                split = True
+                newComps.extend(sList)
 
-        cspos += cctrl.pos
-        pspos += cPos
-        startT = endT
+        for cctrl in newComps:
+            tPos = cctrl.pos + cspos
+            endT = mapTo(tPos)
+            cPos = normalTo(endT, tPos) - pspos
+
+            p1 = cctrl.tangent(0)
+            p1.y *= lenRatio
+            radian = p1.radian()
+            p1 = ctrl.normals(startT, 10)[0].rotate(radian)
+
+            p2 = -cctrl.tangent(1,10)
+            p2.y *= lenRatio
+            radian = p2.radian()
+            p2 = ctrl.normals(endT, 10)[0].rotate(radian) + cPos
+            
+            s = 0
+            e = 1
+            radian1 = p1.radian()
+            radian2 = (cPos - p2).rotate(-radian1).radian()
+            target = radian2 / 2
+            for _ in range(20):
+                centerT = (s+e) / 2
+                tPos = cctrl.valueAt(centerT) + cspos
+                t1 = mapTo(tPos)
+
+                k = cctrl.tangent(centerT, 1000)
+                k.y *= lenRatio
+                k = ctrl.normals(t1, 10)[0].rotate(k.radian())
+                radian = k.rotate(-radian1).radian()
+                if abs(radian - target) < 0.1:
+                    break
+                elif abs(target) < abs(radian):
+                    e = centerT
+                else:
+                    s = centerT
+            pos1 = normalTo(t1, tPos) - pspos
+            
+            # newCtrl = BezierCtrl(cPos, p1, p2).threeTangentCurver(k, pos1)
+            # newCtrl = BezierCtrl(cPos, p1, p2).controlInto(BezierCtrl.threePointT(Point(), pos1, cPos), pos1)
+            # newCtrl = BezierCtrl.threePointCtrl(Point(), pos1, cPos)
+            if split or radian2 < .157:
+                newCtrl = BezierCtrl.threePointCtrl(Point(), pos1, cPos)
+            else:
+                newCtrl = BezierCtrl(cPos, p1, p2).threeTangentCurver(k, pos1)
+                if newCtrl == None:
+                    newCtrl = BezierCtrl.threePointCtrl(Point(), pos1, cPos)
+
+            if newCtrl.isLine():
+                newCtrl.p1 = Point()
+                newCtrl.p2 = newCtrl.pos
+            path.append(newCtrl)
+
+            cspos += cctrl.pos
+            pspos += cPos
+            startT = endT
 
     if comp.isClose():
         path.close()

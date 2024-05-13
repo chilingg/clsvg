@@ -564,29 +564,20 @@ def testControlComp():
     styleElem.tail = '\n'
     newRoot.append(styleElem)
 
-    LENGTH = 360
-    LENGTH1 = 36
-    LENGTH2 = 32
-    LENGTH3 = 14
-    WIDTH1 = 18
-    STROKE_WIDTH = 32
+    m1 = 27.61
+    m2 = 55.22
     comp = bezierShape.BezierPath()
     comp.start(bezierShape.Point(0, 0))
-    comp.connect(bezierShape.Point(STROKE_WIDTH * 2, LENGTH1))
-    comp.connect(bezierShape.Point(0, LENGTH - LENGTH1))
-    comp.connect(bezierShape.Point(STROKE_WIDTH / -2, 0))
-    comp.connect(bezierShape.Point(STROKE_WIDTH * -1.5 + WIDTH1, -LENGTH + LENGTH2 + LENGTH3))
-    comp.connect(bezierShape.Point(-WIDTH1, -LENGTH2))
+    comp.connect(bezierShape.Point(50, 100), bezierShape.Point(m1, 0), bezierShape.Point(50, 100-m2))
+    comp.connect(bezierShape.Point(-50, 100), bezierShape.Point(0, m2), bezierShape.Point(m1-50, 100))
+    comp.connect(bezierShape.Point(-50, -100), bezierShape.Point(-m1, 0), bezierShape.Point(-50, -100+m2))
+    comp.connect(bezierShape.Point(50, -100), bezierShape.Point(0, -m2), bezierShape.Point(-m1+50, -100))
     comp.close()
     
     # comp.start(bezierShape.Point(0, 0))
     # comp.connect(bezierShape.Point(0, 30))
     # comp.connect(bezierShape.Point(-10, 0))
     # comp.connect(bezierShape.Point(0, -15))
-    
-    # comp.connect(bezierShape.Point(STROKE_WIDTH/2, 700), p2=bezierShape.Point(0, 400))
-    # comp.connect(bezierShape.Point(STROKE_WIDTH/2, 0))
-    # comp.connect(bezierShape.Point(0, -700))
     
     for child in root:
         tag = svgfile.unPrefix(child.tag)
@@ -607,17 +598,142 @@ def testControlComp():
     newTree = svgfile.ET.ElementTree(newRoot)
     newTree.write(os.path.join(TEST_OVER_FOLDER, targetFile), encoding = "utf-8", xml_declaration = True)
 
+def testThreePointCurve():
+    targetFile = 'three_point_curve.svg'
+
+    tree = svgfile.parse(os.path.join(TEST_FOLDER, targetFile))
+    root = tree.getroot()
+
+    newRoot = svgfile.ET.Element(root.tag, root.attrib)
+    newRoot.text = '\n'
+    styleElem = svgfile.ET.Element('style', { 'type': 'text/css' })
+    styleElem.text = MAIN_PATH_STYLE
+    styleElem.tail = '\n'
+    newRoot.append(styleElem)
+
+    for child in root:
+        tag = svgfile.unPrefix(child.tag)
+        if tag != 'style':
+            path = bezierShape.createPathfromSvgElem(child, tag)
+            pathElem = path.toSvgElement()
+            pathElem.set('stroke', 'red')
+            pathElem.set('fill', 'none')
+            newRoot.append(pathElem)
+            for bPath in path:
+                ctrl = bezierShape.BezierCtrl.threePointCtrl(bPath.posIn(0), bPath.posIn(1), bPath.posIn(2))
+                newPath = bezierShape.BezierPath()
+                newPath.start(bPath.startPos())
+                newPath.append(ctrl)
+                shape = bezierShape.BezierShape()
+                shape.add(newPath)
+                newRoot.append(shape.toSvgElement({ 'class': 'st0' }))
+
+    newTree = svgfile.ET.ElementTree(newRoot)
+    newTree.write(os.path.join(TEST_OVER_FOLDER, targetFile), encoding = "utf-8", xml_declaration = True)
+
+def testPointTangentCurve():
+    targetFile = 'point_tangents_curve.svg'
+
+    tree = svgfile.parse(os.path.join(TEST_FOLDER, targetFile))
+    root = tree.getroot()
+
+    newRoot = svgfile.ET.Element(root.tag, root.attrib)
+    newRoot.text = '\n'
+    styleElem = svgfile.ET.Element('style', { 'type': 'text/css' })
+    styleElem.text = MAIN_PATH_STYLE
+    styleElem.tail = '\n'
+    newRoot.append(styleElem)
+
+    tLength = 1/3
+    for child in root:
+        tag = svgfile.unPrefix(child.tag)
+        if tag != 'style':
+            path = bezierShape.createPathfromSvgElem(child, tag)
+            pathElem = path.toSvgElement()
+            pathElem.set('stroke', 'red')
+            pathElem.set('fill', 'none')
+            newRoot.append(pathElem)
+            for bPath in path:
+                pList = [bPath.posIn(0), bPath.posIn(1), bPath.posIn(2)]
+                tangents = (pList[2].y - pList[0].y) / abs(pList[2].y - pList[0].y)
+                ctrl = bezierShape.BezierCtrl.pointAndTangent(bezierShape.Point(0, tangents), pList[0], pList[1], pList[2], tLength)
+                newPath = bezierShape.BezierPath()
+                newPath.start(bPath.startPos())
+                newPath.append(ctrl)
+                shape = bezierShape.BezierShape()
+                shape.add(newPath)
+                newRoot.append(shape.toSvgElement({ 'class': 'st0' }))
+
+    newTree = svgfile.ET.ElementTree(newRoot)
+    newTree.write(os.path.join(TEST_OVER_FOLDER, targetFile), encoding = "utf-8", xml_declaration = True)
+
+def testPointAndTangent():
+    bs = bezierShape
+
+    p1 = bs.Point(50.79, 21.7)
+    p2 = bs.Point(74.37, 80.46)
+    p3 = bs.Point(52.67, 131.25)
+    ctrl = bs.BezierCtrl(p3, p1, p2)
+    t=0.5
+
+    A1, B1, _ = bs.lineareQuation(bs.Point(), p1)
+    A2, B2, C2 = bs.lineareQuation(p2, p3)
+
+    p = ctrl.valueAt(t)
+    k = ctrl.tangent(t)
+    
+    m = p.y
+    n = p.x
+    p6 = p3.y
+    p3 = p3.x
+    k1 = k.x
+    k2 = k.y
+
+    c1 = (-3*A1*B2*k1*m + 3*A1*B2*k2*n + 3*A2*B1*k1*m - 3*A2*B1*k2*n)
+    c2 = (-3*A1*C2*k1 - 3*B1*C2*k2)
+    c3 = (A1*A2*k1*p3 + 2*A1*B2*k1*p6 - A1*B2*k2*p3 + 3*A1*C2*k1 - A2*B1*k1*p6 + 2*A2*B1*k2*p3 + B1*B2*k2*p6 + 3*B1*C2*k2)
+    c = -A1*A2*k1*n + A1*B2*k1*m - 2*A1*B2*k2*n - 2*A2*B1*k1*m + A2*B1*k2*n - B1*B2*k2*m
+    ts = list(bs.equation(c3, c2, c1 , c))
+    ts.sort()
+
+    targetFile = 'point_and_tangent.svg'
+
+    tree = svgfile.parse(os.path.join(TEST_FOLDER, targetFile))
+    root = tree.getroot()
+
+    newRoot = svgfile.ET.Element(root.tag, root.attrib)
+    newRoot.text = '\n'
+    styleElem = svgfile.ET.Element('style', { 'type': 'text/css' })
+    styleElem.text = MAIN_PATH_STYLE
+    styleElem.tail = '\n'
+    newRoot.append(styleElem)
+
+    startP = [bs.Point(300, 60), bs.Point(300, 400), bs.Point(300, 740)]
+    for i in range(3):
+        t = ts[i]
+        newPath = bezierShape.BezierPath()
+        newPath.start(startP[i])
+        newPath.append(ctrl.controlInto(t, p))
+        shape = bezierShape.BezierShape()
+        shape.add(newPath)
+        newRoot.append(shape.toSvgElement({ 'class': 'st0' }))
+        newRoot.append(svgfile.createCircleElem(p+startP[i], 4, {'fill': 'red'}))
+
+    newTree = svgfile.ET.ElementTree(newRoot)
+    newTree.write(os.path.join(TEST_OVER_FOLDER, targetFile), encoding = "utf-8", xml_declaration = True)
+
 if __name__ == '__main__':
     if not os.path.exists(TEST_OVER_FOLDER):
         os.mkdir(TEST_OVER_FOLDER)
 
     # test()
+    # testPathToOutline()
+
     testBoundingBox()
     testCasteljau()
     testCurveAndLineIntersections()
     testExtermesFinding()
     testPathIntersections()
-    # testPathToOutline()
     testSimplified()
     testShapeToPath()
     testSplitting()
@@ -627,3 +743,6 @@ if __name__ == '__main__':
     testTowLineOnePointCurve()
     testArcLength()
     testControlComp()
+    testThreePointCurve()
+    testPointTangentCurve()
+    testPointAndTangent()
