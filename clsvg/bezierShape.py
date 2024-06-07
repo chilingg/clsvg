@@ -672,9 +672,12 @@ class BezierCtrl(object):
         ctrl = self
         r = []
         for t in tList:
+            if t == preT or t == 1:
+                continue
             splits = ctrl.splitting((t-preT)/(1-preT))
             r.append(splits[0])
             ctrl = splits[1]
+            preT = t
         r.append(ctrl)
         return r
 
@@ -911,7 +914,7 @@ class BezierCtrl(object):
             tangents = (p - cCenter).perpendicular().normalization()
         else:
             tangents = (start - end).normalization()
-        d = (start - end).distance() / 3
+        d = (start - end).distance() / 3.2
 
         delt = (math.atan2(end.y - start.y, end.x - start.x) - math.atan2(p.y - start.y, p.x - start.x) + 2 * math.pi) % (2*math.pi)
         if delt < 0 or delt > math.pi:
@@ -1293,7 +1296,7 @@ class BezierCtrl(object):
 
     def isLine(self):
         OFFSET = .01
-        return abs(self.pos.x * self.p2.y - self.p2.x * self.pos.y) < OFFSET and abs(self.p1.x * self.p2.y - self.p2.x * self.p1.y) < OFFSET
+        return abs(self.p1.rotate(-self.pos.radian()).y) < OFFSET and abs(self.p2.rotate(-self.pos.radian()).y) < OFFSET
 
     def isValid(self, offset=0):
         return max(abs(self.p1.x), abs(self.p2.x), abs(self.pos.x), abs(self.p1.y), abs(self.p2.y), abs(self.pos.y)) > offset
@@ -1656,7 +1659,7 @@ class BezierPath(object):
             return 1
         return 0            
 
-    def splitting(self, p1: Point, p2: Point):
+    def splitting(self, p1: Point, p2: Point, connect=True):
         radian = p2.radian(p1)
         rPath = self.rotate(-radian, p1)
 
@@ -1672,6 +1675,14 @@ class BezierPath(object):
 
         for ctrl in rPath:
             roots = ctrl.roots(y=p1.y, pos=pos)
+            if len(roots) and roots[0] < 0.0001:
+                roots.pop(0)
+                if len(newPath) != 0:
+                    result[index].append(newPath.rotate(radian, p1))
+                    newPath = BezierPath()
+                    newPath.start(pos)
+                    index = (index+1) % 2
+
             if len(roots):
                 splits = ctrl.splittings(roots)
                 for sCtrl in splits[:-1]:
@@ -1681,15 +1692,19 @@ class BezierPath(object):
                     newPath = BezierPath()
                     newPath.start(pos)
                     index = (index+1) % 2
-                newPath.append(splits[-1])
-                pos += splits[-1].pos
+
+                sLength = splits[-1].lengthAt(1)
+                if sLength > 1 or sLength*20 > ctrl.lengthAt(1):
+                    newPath.append(splits[-1])
+                    pos += splits[-1].pos
             else:
                 newPath.append(ctrl)
                 pos += ctrl.pos
         
-        if rPath.isClose() and startIndex == index:
-            newPath.connectPath(result[index][0])
+        if connect and rPath.isClose() and startIndex == index:
+            temp = result[index][0]
             result[index][0] = newPath.rotate(radian, p1)
+            result[index][0].connectPath(temp)
         else:
             result[index].append(newPath.rotate(radian, p1))
 
@@ -2160,7 +2175,9 @@ def controlComp(ctrl, comp: BezierPath, pos=Point(), xcenter=0.5, group=False, f
                 k.y *= lenRatio
                 k = normal(z1, 10).rotate(k.radian())
                 radian = k.rotate(-radian1).radian()
-                if abs(radian - target) <= min(0.1, abs(radian2/10)):
+                if radian2 < 0.0523:
+                    break
+                elif abs(radian - target) <= min(0.1, abs(radian2/10)):
                     break
                 elif abs(target) < abs(radian):
                     e = centerT
@@ -2171,7 +2188,7 @@ def controlComp(ctrl, comp: BezierPath, pos=Point(), xcenter=0.5, group=False, f
             # newCtrl = BezierCtrl(cPos, p1, p2).threeTangentCurver(k, pos1)
             # newCtrl = BezierCtrl(cPos, p1, p2).controlInto(BezierCtrl.threePointT(Point(), pos1, cPos), pos1)
             # newCtrl = BezierCtrl.threePointCtrl(Point(), pos1, cPos)
-            if split or abs(radian2) < .157:
+            if abs(radian2) < .157 or (split and cPos.distance() < ctrlLength/10):
                 newCtrl = BezierCtrl.threePointCtrl(Point(), pos1, cPos)
             else:
                 newCtrl = BezierCtrl(cPos, p1, p2).threeTangentCurver(k, pos1)
