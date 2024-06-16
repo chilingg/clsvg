@@ -1295,7 +1295,7 @@ class BezierCtrl(object):
         if self._p2 and self._p2 != self.pos: self.p2.transform(scale, Point())
 
     def isLine(self):
-        OFFSET = .01
+        OFFSET = .1
         return abs(self.p1.rotate(-self.pos.radian()).y) < OFFSET and abs(self.p2.rotate(-self.pos.radian()).y) < OFFSET
 
     def isValid(self, offset=0):
